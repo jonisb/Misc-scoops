@@ -1,17 +1,17 @@
 {
     "homepage": "https://www.uwe-sieber.de/filetools_e.html",
     "description": "FCB is a fast replacement for Windows FC.EXE. It supports only the binary mode of the original",
-    "version": "0.8.2.0",
+    "version": "0.8.3.0",
     "license": "Freeware",
     "architecture": {
         "64bit": {
             "url": "https://www.uwe-sieber.de/files/fcb.zip",
-            "hash": "",
+            "hash": "02c7071a1d121b53bd4ff40df839ac8716be1bfd87bf4f52c461706785c9ce90",
             "extract_dir": "x64"
         },
         "32bit": {
             "url": "https://www.uwe-sieber.de/files/fcb.zip",
-            "hash": "",
+            "hash": "02c7071a1d121b53bd4ff40df839ac8716be1bfd87bf4f52c461706785c9ce90",
             "extract_dir": "Win32"
         }
     },
