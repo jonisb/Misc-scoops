@@ -6,13 +6,13 @@
     "architecture": {
         "64bit": {
             "url": "https://www.uwe-sieber.de/files/fsf.zip",
-            "extract_dir": "x64"
             "hash": "",
+            "extract_dir": "x64"
         },
         "32bit": {
             "url": "https://www.uwe-sieber.de/files/fsf.zip",
-            "extract_dir": "Win32"
             "hash": "",
+            "extract_dir": "Win32"
         }
     },
     "bin": "FSF.exe",
