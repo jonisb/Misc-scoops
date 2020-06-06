@@ -1,0 +1,18 @@
+{
+    "homepage": "https://w-shadow.com/blog/2009/03/04/restart-on-crash/",
+    "description": "Automatically Restart Crashed Or Hanged Applications",
+    "license": "Freeware",
+    "version": "1.6.3",
+    "url": "http://w-shadow.com/files/RestartOnCrash-v1.6.3.zip",
+    "bin": "RestartOnCrash.exe",
+    "persist": "settings.ini",      
+    "pre_install": [
+        "if (!(Test-Path $persist_dir\\settings.ini)) {",
+        "   New-Item $dir\\settings.ini | Out-Null",
+        "}"
+		],
+    "checkver": "RestartOnCrash-v([\\d\\.]+)\\.zip",
+    "autoupdate": {
+    		"url": "http://w-shadow.com/files/RestartOnCrash-v$version.zip"
+    }
+}
