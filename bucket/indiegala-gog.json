@@ -2,18 +2,18 @@
     "homepage": "https://github.com/burnhamup/galaxy-integration-indiegala",
     "description": "GOG Galaxy Integration for Indiegala",
     "license": "MIT",
-    "version": "0.0.7",
-    "url": "https://github.com/burnhamup/galaxy-integration-indiegala/releases/download/0.0.7/indiegala_v0.0.7.zip",
-    "hash": "",
+    "version": "0.0.8",
+    "url": "https://github.com/burnhamup/galaxy-integration-indiegala/releases/download/0.0.8/indiegala_v0.0.8.zip",
+    "hash": "53fe36d653d95bfe9c32033e28365e648fc04d5091577fc1dba91ab1e1ac22a6",
     "extract_to": "indiegala",
     "installer": {
         "script": "cp $dir\\indiegala $env:LOCALAPPDATA\\GOG.com\\Galaxy\\plugins\\installed -Recurse"
-    },    
+    },
     "uninstaller": {
         "script": "del $env:LOCALAPPDATA\\GOG.com\\Galaxy\\plugins\\installed\\indiegala -recurse -Force"
     },
     "checkver": "github",
     "autoupdate": {
-    		"url": "https://github.com/burnhamup/galaxy-integration-indiegala/releases/download/$version/indiegala_v$version.zip"
+        "url": "https://github.com/burnhamup/galaxy-integration-indiegala/releases/download/$version/indiegala_v$version.zip"
     }
 }
