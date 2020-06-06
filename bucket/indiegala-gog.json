@@ -4,7 +4,7 @@
     "license": "MIT",
     "version": "0.0.7",
     "url": "https://github.com/burnhamup/galaxy-integration-indiegala/releases/download/0.0.7/indiegala_v0.0.7.zip",
-    "hash": ""
+    "hash": "",
     "extract_to": "indiegala",
     "installer": {
         "script": "cp $dir\\indiegala $env:LOCALAPPDATA\\GOG.com\\Galaxy\\plugins\\installed -Recurse"
