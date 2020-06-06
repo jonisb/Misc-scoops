@@ -1,0 +1,15 @@
+{
+    "homepage": "https://www.sentex.ca/~mwandel/finddupe/",
+    "description": "duplicate file detector and eliminator for Windows by Matthias Wandel.",
+    "license": "Public Domain",
+    "version": "1.22",
+    "url": "https://www.sentex.ca/~mwandel/finddupe/finddupe.exe",
+    "hash": "",
+    "checkver": {
+        "url": "https://www.sentex.ca/~mwandel/finddupe/",
+        "regex": "Version ([\\d.]+)"
+    },
+    "autoupdate": {
+    		"url": "https://www.sentex.ca/~mwandel/finddupe/finddupe.exe"
+    }
+}
