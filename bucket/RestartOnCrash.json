@@ -4,6 +4,7 @@
     "license": "Freeware",
     "version": "1.6.3",
     "url": "http://w-shadow.com/files/RestartOnCrash-v1.6.3.zip",
+    "hash": "",
     "bin": "RestartOnCrash.exe",
     "persist": "settings.ini",      
     "pre_install": [
