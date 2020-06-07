@@ -22,6 +22,6 @@
         "regex": "powder([\\d]+)_win.zip"
     },
     "autoupdate": {
-        "url": "http://www.zincland.com/powder/release/powder118_win.zip"
+        "url": "http://www.zincland.com/powder/release/powder$version_win.zip"
     }
 }
