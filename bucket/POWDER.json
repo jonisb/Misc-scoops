@@ -1,7 +1,7 @@
 {
     "homepage": "http://www.zincland.com/powder",
     "description": "POWDER is a roguelike originaly developed specifically for the Gameboy Advance (GBA)",
-    "license": "Creative Commons Sampling Plus",
+    "license": "https://creativecommons.org/licenses/sampling+/1.0/",
     "version": "118",
     "url": "http://www.zincland.com/powder/release/powder118_win.zip",
     "hash": "0d9ab7243cd95730cc3368f1f769d9a635dcd564ff8b04977227737788c0d0a8",
