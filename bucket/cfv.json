@@ -8,7 +8,7 @@
     "bin": "cfv.exe",
     "checkver": {
         "url": "https://sourceforge.net/projects/cfv/rss?path=/",
-        "regex": "cfv-([\\d.]+)"
+        "regex": "cfv-([\\d.]+).exe"
     },
     "autoupdate": {
         "url": "https://downloads.sourceforge.net/project/cfv/cfv/$version/cfv-$version.exe#/dl.7z"
