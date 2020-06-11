@@ -12,7 +12,7 @@
         ]
     ],    
     "checkver": {
-        "regex": "<td>Version</td><td></td><td>([\\d.]+)</td>"
+        "regex": "<td>Version.*>([\\d.]+)</td>"
     },
     "autoupdate": {
         "url": "http://www.magicnotes.com/steelbytes/AutoCompress_ENG.zip"
