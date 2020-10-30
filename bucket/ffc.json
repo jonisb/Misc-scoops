@@ -1,7 +1,7 @@
 {
     "homepage": "https://www.uwe-sieber.de/filetools_e.html",
     "description": "is optimized for large files. It reads and writes directly from and to disk, written data can be verified.",
-    "version": "1.4.2.0",
+    "version": "1.4.1.0",
     "license": "Freeware",
     "architecture": {
         "64bit": {
