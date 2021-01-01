@@ -12,7 +12,7 @@
         "   New-Item $dir\\settings.ini | Out-Null",
         "}"
     ],
-    "checkver": "RestartOnCrash-v([\\d\\.]+)\\.zip",
+    "checkver": "RestartOnCrash-v([\\d\\.]+)-signed\\.zip",
     "autoupdate": {
         "url": "https://w-shadow.com/files/RestartOnCrash-v$version-signed.zip"
     }
