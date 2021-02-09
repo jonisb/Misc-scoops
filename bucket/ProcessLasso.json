@@ -8,7 +8,7 @@
     "extract_to": "Process Lasso",
     "shortcuts": [
         [
-            "ProcessLassoLauncher.exe",
+            "Process Lasso/ProcessLassoLauncher.exe",
             "Process Lasso"
         ]
     ],
