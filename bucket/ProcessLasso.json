@@ -18,6 +18,9 @@
         "Process Lasso/config",
         "Process Lasso/logs"
     ],
+    "installer": {
+        "script": "Remove-Item \"$dir\\`$PLUGINSDIR\" -Recurse"
+    },
     "checkver": {
         "url": "https://bitsum.com/changes/processlasso/",
         "regex": "Process Lasso v.*>([\\d.]+)"
