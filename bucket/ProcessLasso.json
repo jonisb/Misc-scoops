@@ -13,8 +13,6 @@
         ]
     ],
     "persist": [
-        "Process Lasso/config/prolasso.ini",
-        "Process Lasso/logs/prolasso.log",
         "Process Lasso/config",
         "Process Lasso/logs"
     ],
