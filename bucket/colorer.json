@@ -2,15 +2,15 @@
     "homepage": "https://github.com/colorer/Colorer-library",
     "description": "is a syntax highlighting library. ",
     "license": "MIT",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/colorer/Colorer-library/releases/download/v1.2.0/colorer.v.1.2.0x64.zip",
-            "hash": "54f058b6b19afdf6bdfe18dd9ee49e54e5024a6a9c5787dc8313255b2c4fba0b"
+            "url": "https://github.com/colorer/Colorer-library/releases/download/v1.2.1/colorer.x64.v1.2.1.7z",
+            "hash": "44f0df669829d5010f6b7e06336c8f493609c42ee0fc821a7f5ec675fd9dc0bc"
         },
         "32bit": {
-            "url": "https://github.com/colorer/Colorer-library/releases/download/v1.2.0/colorer.v.1.2.0x86.zip",
-            "hash": "037f2ed8df7ea33454243ec56b1648883a139492059e8b5a5b0ae8d6c8430efa"
+            "url": "https://github.com/colorer/Colorer-library/releases/download/v1.2.1/colorer.x86.v1.2.1.7z",
+            "hash": "3e0b30fee540d6592a390164a7e7c5c5655a4e0880e440a5507ca34024f9991c"
         }
     },
     "bin": "colorer.exe",
