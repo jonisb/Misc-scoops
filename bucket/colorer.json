@@ -18,10 +18,10 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/colorer/Colorer-library/releases/download/v$version/colorer.v.1.2.0x64.zip"
+                "url": "https://github.com/colorer/Colorer-library/releases/download/v$version/colorer.x64.v$version.7z"
             },
             "32bit": {
-                "url": "https://github.com/colorer/Colorer-library/releases/download/v$version/colorer.v.1.2.0x86.zip"
+                "url": "https://github.com/colorer/Colorer-library/releases/download/v$version/colorer.x86.v$version.7z"
             }
         }
     }
