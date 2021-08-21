@@ -9,21 +9,21 @@
         "64bit": {
 						"shortcuts": [
 								[
-										"IntegerScaler_64bit.exe", "IntegerScaler"
+										"IntegerScaler\IntegerScaler_64bit.exe", "IntegerScaler"
 								]
 						]
        },
         "32bit": {
 						"shortcuts": [
 								[
-										"IntegerScaler_32bit.exe", "IntegerScaler"
+										"IntegerScaler\IntegerScaler_32bit.exe", "IntegerScaler"
 								]
 						]
         }
     },
     "extract_to": "IntegerScaler",
     "persist": [
-        "IntegerScaler/settings"
+        "IntegerScaler\settings"
     ],
     "checkver": {
         "regex": "<p class=\"download\"><a href=\"https://dl\\.tanalin\\.com/projects/integer-scaler/IntegerScaler-([\\d.]+)\\.7z\">"
