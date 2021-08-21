@@ -1,0 +1,11 @@
+{
+    "homepage": "https://github.com/Blinue/Magpie",
+    "version": "0.5.2",
+    "url": "https://github.com/Blinue/Magpie/releases/download/v0.5.2/Magpie_v0.5.2.zip",
+    "hash": "b159b02926872fbc159058072162ea13663a3fe24da064cf92f6cdff52ca5bb6",
+    "license": "GPL3",
+    "checkver": "github",
+    "autoupdate": {
+        "url": "https://github.com/Blinue/Magpie/releases/download/v$version/Magpie_v$version.zip"
+    }
+}
