@@ -4,6 +4,19 @@
     "url": "https://github.com/Blinue/Magpie/releases/download/v0.5.2/Magpie_v0.5.2.zip",
     "hash": "b159b02926872fbc159058072162ea13663a3fe24da064cf92f6cdff52ca5bb6",
     "license": "GPL3",
+    "pre_install": [
+        "if (!(Test-Path $persist_dir/Magpie.exe.config)) {",
+        "   New-Item $dir\\Magpie.exe.config | Out-Null",
+        "}"
+    ],
+    "persist": [
+        "Magpie.exe.config"
+    ],
+		"shortcuts": [
+				[
+						"Magpie.exe", "Magpie"
+				]
+		],
     "checkver": "github",
     "autoupdate": {
         "url": "https://github.com/Blinue/Magpie/releases/download/v$version/Magpie_v$version.zip"
