@@ -5,6 +5,26 @@
     "url": "https://dl.tanalin.com/projects/integer-scaler/IntegerScaler-2.17.7z",
     "hash": "a10d3af7e0df2a25bca3493f6f501a4994386559d2885df7e55ad9f948db8fc7",
     "license": "Freeware",
+    "architecture": {
+        "64bit": {
+						"shortcuts": [
+								[
+										"IntegerScaler_64bit.exe", "IntegerScaler"
+								]
+						]
+       },
+        "32bit": {
+						"shortcuts": [
+								[
+										"IntegerScaler_32bit.exe", "IntegerScaler"
+								]
+						]
+        }
+    },
+    "extract_to": "IntegerScaler",
+    "persist": [
+        "IntegerScaler/settings"
+    ],
     "checkver": {
         "regex": "<p class=\"download\"><a href=\"https://dl\\.tanalin\\.com/projects/integer-scaler/IntegerScaler-([\\d.]+)\\.7z\">"
     },
