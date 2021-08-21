@@ -5,6 +5,11 @@
     "url": "https://dl.tanalin.com/projects/integer-scaler/IntegerScaler-2.17.7z",
     "hash": "a10d3af7e0df2a25bca3493f6f501a4994386559d2885df7e55ad9f948db8fc7",
     "license": "Freeware",
+    "pre_install": [
+        "if (!(Test-Path $persist_dir/settings)) {",
+        "   New-Item $dir\\settings | Out-Null",
+        "}"
+    ],
     "architecture": {
         "64bit": {
 						"shortcuts": [
