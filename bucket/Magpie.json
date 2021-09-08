@@ -1,8 +1,8 @@
 {
     "homepage": "https://github.com/Blinue/Magpie",
-    "version": "0.6.0",
-    "url": "https://github.com/Blinue/Magpie/releases/download/v0.6.0/Magpie_v0.6.0.zip",
-    "hash": "1ebfaafe04235059da31577fdc7feef1415e85e5f2d286485ad53a3b0176cc8f",
+    "version": "0.6.1",
+    "url": "https://github.com/Blinue/Magpie/releases/download/v0.6.1/Magpie_v0.6.1.zip",
+    "hash": "5c1ad57217fba49376cda73d0409d5b74139aad43a3b4251c4eba43e1913dd42",
     "license": "GPL3",
     "persist": "Magpie.exe.config",
     "shortcuts": [
