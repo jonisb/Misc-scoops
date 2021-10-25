@@ -1,9 +1,9 @@
 {
     "homepage": "https://tanalin.com/en/projects/integer-scaler",
     "description": "is a free utility for pixel-perfect integer-ratio scaling (a.k.a. integer scaling) of games with no blur. For example, at the Full HD (1920×1080) resolution on a 4K monitor (3840×2160), each logical pixel is displayed as a square group of four (2×2) physical pixels of the same color.",
-    "version": "2.17",
-    "url": "https://dl.tanalin.com/projects/integer-scaler/IntegerScaler-2.17.7z",
-    "hash": "a10d3af7e0df2a25bca3493f6f501a4994386559d2885df7e55ad9f948db8fc7",
+    "version": "2.18",
+    "url": "https://dl.tanalin.com/projects/integer-scaler/IntegerScaler-2.18.7z",
+    "hash": "ddd7e6e4d6c51460c25959f838773185bb34f5ac847f089fec28cb982e6f3975",
     "license": "Freeware",
     "pre_install": [
         "if (!(Test-Path $persist_dir/settings)) {",
@@ -12,23 +12,23 @@
     ],
     "architecture": {
         "64bit": {
-						"shortcuts": [
-								[
-										"IntegerScaler_64bit.exe", "IntegerScaler"
-								]
-						]
-       },
+            "shortcuts": [
+                [
+                    "IntegerScaler_64bit.exe",
+                    "IntegerScaler"
+                ]
+            ]
+        },
         "32bit": {
-						"shortcuts": [
-								[
-										"IntegerScaler_32bit.exe", "IntegerScaler"
-								]
-						]
+            "shortcuts": [
+                [
+                    "IntegerScaler_32bit.exe",
+                    "IntegerScaler"
+                ]
+            ]
         }
     },
-    "persist": [
-        "settings"
-    ],
+    "persist": "settings",
     "checkver": {
         "regex": "<p class=\"download\"><a href=\"https://dl\\.tanalin\\.com/projects/integer-scaler/IntegerScaler-([\\d.]+)\\.7z\">"
     },
