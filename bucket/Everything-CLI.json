@@ -1,10 +1,10 @@
 {
     "homepage": "https://www.voidtools.com/support/everything/command_line_interface",
     "description": "command line interface to search Everything from a command prompt.",
-    "version": "1.1.0.20",
+    "version": "1.1.0.21",
     "license": "MIT",
-    "url": "https://www.voidtools.com/ES-1.1.0.20.zip",
-    "hash": "26da38079bed01672e5bc0201868a06d3cd37ccd188fcf4e973f33ae0bfd17de",
+    "url": "https://www.voidtools.com/ES-1.1.0.21.zip",
+    "hash": "49b0ffafcb1fe7665e30892be4757ecd73094c690eb2dea00f759d7eac0e2ab2",
     "depends": "extras/everything",
     "bin": "es.exe",
     "checkver": {
