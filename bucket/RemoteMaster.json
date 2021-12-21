@@ -11,5 +11,11 @@
     },
     "autoupdate": {
         "url": "https://downloads.sourceforge.net/project/controlremote/RemoteMaster/v$version/RMIR.v$version-bin.zip"
+    },
+    "suggest": {
+        "JDK": [
+            "java/oraclejdk",
+            "java/openjdk"
+        ]
     }
 }
