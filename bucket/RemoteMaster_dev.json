@@ -1,0 +1,15 @@
+{
+    "homepage": "https://sourceforge.net/projects/controlremote/",
+    "description": "",
+    "version": "2.13.5",
+    "license": "Fair License",
+    "url": "https://downloads.sourceforge.net/project/controlremote/RMIRDevelopment/RMIR.v2.13.5-bin.zip",
+    "hash": "sha1:111f0cfe27ed8d3904b9c44c2955443e504d7f35",
+    "checkver": {
+        "url": "https://sourceforge.net/projects/controlremote/rss?path=/",
+        "regex": "/RMIRDevelopment/RMIR.v([\\d.]+)-bin.zip"
+    },
+    "autoupdate": {
+        "url": "https://downloads.sourceforge.net/project/controlremote/RMIRDevelopment/RMIR.v$version-bin.zip"
+    }
+}
