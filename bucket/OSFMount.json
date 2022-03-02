@@ -12,6 +12,10 @@
         ]
     ],
     "innosetup": true,
+    "extract_to": [
+        "",
+        "Plugins"
+    ],
     "checkver": {
         "regex": "<p>Please click below to download the OSFMount V([\\d.]+) installation package</p>"
     },
