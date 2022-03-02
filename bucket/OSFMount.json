@@ -4,7 +4,7 @@
     "version": "3.1.1000",
     "license": "Freeware",
     "url": "https://www.osforensics.com/downloads/osfmount.exe",
-    "hash": "033c69c76b0234544dc883b0e8d00ce9be175a54732419756a9d93e6709d963b",
+    "hash": "033c69c76b0234544dc883b0e8d00ce9be175a54732419756a9d93e6709d963b#/dl.exe",
     "shortcuts": [
         [
             "OSFMount.exe",
@@ -16,6 +16,6 @@
         "regex": "<p>Please click below to download the OSFMount V([\\d.]+) installation package</p>"
     },
     "autoupdate": {
-        "url": "https://www.osforensics.com/downloads/osfmount.exe"
+        "url": "https://www.osforensics.com/downloads/osfmount.exe#/dl.exe"
     }
 }
