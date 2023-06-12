@@ -18,7 +18,7 @@
         "}"
     ],
     "checkver": {
-        "url": "http://www.zincland.com/powder/index.php?pagename=release&maxentries=0",
+        "url": "http://www.zincland.com/powder/index.php?pagename=release",
         "regex": "powder([\\d]+)_win.zip"
     },
     "autoupdate": {
