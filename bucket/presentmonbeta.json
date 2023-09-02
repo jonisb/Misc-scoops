@@ -5,6 +5,6 @@
     "license": "MIT",
     "url": "https://github.com/GameTechDev/PresentMon/releases/download/v1.9.0/PMInstaller-v0.5-beta.msi",
     "hash": "d9de722f70a07d0c55a461393808fad9b01d037f9c958d010334628a59299fe1",
-    "extract_dir": "msi",
+    "extract_dir": "SourceDir",
     "checkver": "github"
 }
