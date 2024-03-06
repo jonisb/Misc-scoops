@@ -1,10 +1,10 @@
 {
     "homepage": "https://www.osforensics.com/tools/mount-disk-images.html",
     "description": "allows you to mount local disk image files (bit-for-bit copies of an entire disk or disk partition) in Windows as a physical disk or a logical drive letter.",
-    "version": "3.1.1001",
+    "version": "3.1.1003",
     "license": "Freeware",
     "url": "https://www.osforensics.com/downloads/osfmount.exe#/dl.exe",
-    "hash": "fd4012a9df1e1fcd93e473e4498e51d19a2afd9379cd657db1cc023e3c0dc7d6",
+    "hash": "9fe0738b7c2d29a7414e67f53aea359f3801d1c37b44f1b4fed5d02cb7536369",
     "bin": "OSFMount.com",
     "shortcuts": [
         [
