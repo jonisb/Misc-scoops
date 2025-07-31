@@ -2,11 +2,11 @@
     "homepage": "https://github.com/ollama/ollama",
     "description": "Get up and running with Llama 2, Mistral, Gemma, and other large language models.",
     "license": "MIT License",
-    "version": "0.10.0",
+    "version": "0.10.1",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/ollama/ollama/releases/download/v0.10.0/OllamaSetup.exe#/dl.exe",
-            "hash": "b98a74cbc34d98ac85deaf2c057f418c7b635fed65493e54e29aa0376edddacf"
+            "url": "https://github.com/ollama/ollama/releases/download/v0.10.1/OllamaSetup.exe#/dl.exe",
+            "hash": "738e02609e2f0264057da45dd9f125236c622938904eba46565ff88a391c2ad9"
         }
     },
     "bin": "ollama.exe",
