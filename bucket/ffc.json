@@ -5,14 +5,10 @@
     "license": "Freeware",
     "architecture": {
         "64bit": {
-            "url": "https://www.uwe-sieber.de/files/ffc.zip",
-            "hash": "8fa25dc784d75d44a4b6c4ec258c02d7fc9a8807b7048e59c6440ea06f8f2c26",
-            "extract_dir": "x64"
+            "url": "https://www.uwe-sieber.de/files/FFC_x64.zip"
         },
         "32bit": {
-            "url": "https://www.uwe-sieber.de/files/ffc.zip",
-            "hash": "8fa25dc784d75d44a4b6c4ec258c02d7fc9a8807b7048e59c6440ea06f8f2c26",
-            "extract_dir": "Win32"
+            "url": "https://www.uwe-sieber.de/files/FFC_Win32.zip"
         }
     },
     "bin": "FFC.exe",
@@ -23,10 +19,10 @@
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://www.uwe-sieber.de/files/ffc.zip"
+                "url": "https://www.uwe-sieber.de/files/FFC_x64.zip"
             },
             "32bit": {
-                "url": "https://www.uwe-sieber.de/files/ffc.zip"
+                "url": "https://www.uwe-sieber.de/files/FFC_Win32.zip"
             }
         }
     }
