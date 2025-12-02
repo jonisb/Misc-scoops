@@ -45,7 +45,7 @@ jobs:
           # Get changed files, handling potential git diff errors
           if ! changed_files=$(git diff --name-only "$base_sha" "$head_sha" -- 'bucket/*.json' 2>&1); then
             echo "Warning: git diff failed, will test no apps"
-            echo "apps=" >> $GITHUB_OUTPUT
+            echo "apps=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           changed_files=$(echo "$changed_files" | tr '\n' ' ')
@@ -53,14 +53,16 @@ jobs:
           
           # Extract app names (filename without .json extension)
           apps=""
+          # shellcheck disable=SC2086
           for file in $changed_files; do
             if [ -f "$file" ]; then
               app=$(basename "$file" .json)
               apps="$apps $app"
             fi
           done
+          # shellcheck disable=SC2086
           apps=$(echo $apps | xargs) # trim whitespace
-          echo "apps=$apps" >> $GITHUB_OUTPUT
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
           echo "Apps to test: $apps"
 
       - name: Install Scoop
