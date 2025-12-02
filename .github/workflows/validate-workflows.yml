@@ -45,8 +45,19 @@ jobs:
           fi
           
           echo "Changed workflow files: $changed_files"
+          
+          # Filter out deleted files (only keep files that exist)
+          existing_files=""
           # shellcheck disable=SC2086
-          echo "files=$changed_files" >> "$GITHUB_OUTPUT"
+          for file in $changed_files; do
+            if [ -f "$file" ]; then
+              existing_files="${existing_files:+$existing_files }$file"
+            fi
+          done
+          
+          echo "Files to validate: $existing_files"
+          # shellcheck disable=SC2086
+          echo "files=$existing_files" >> "$GITHUB_OUTPUT"
 
       - name: Validate changed workflow files
         if: steps.changed.outputs.files != ''
