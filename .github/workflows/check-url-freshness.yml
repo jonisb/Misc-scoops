@@ -179,6 +179,7 @@ jobs:
           echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Update stale manifests
+        id: update
         shell: powershell
         run: |
           # Split on comma (matching the output format from check job)
@@ -241,6 +242,28 @@ jobs:
             Write-Output "Failed apps: $($failedApps -join ', ')"
           }
 
+          # Write results to job summary
+          "## Update Stale Manifests Results`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "**Generated:** $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') UTC`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+          if ($updatedApps.Count -gt 0) {
+            "### ✅ Successfully Processed Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            foreach ($app in $updatedApps) {
+              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            }
+            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          }
+
+          if ($failedApps.Count -gt 0) {
+            "### ❌ Failed Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            foreach ($app in $failedApps) {
+              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            }
+            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            # Output failed apps for later step to fail the job after commit
+            "failed_apps=$($failedApps -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
       - name: Commit and push changes
         shell: bash
         run: |
@@ -256,3 +279,10 @@ jobs:
           git add bucket/*.json
           git commit -m "Auto-update stale manifests [skip ci]"
           git push
+
+      - name: Report failures
+        if: steps.update.outputs.failed_apps != ''
+        shell: bash
+        run: |
+          echo "::error::Failed to update the following apps: ${{ steps.update.outputs.failed_apps }}"
+          exit 1
