@@ -1,6 +1,11 @@
-name: Test Install/Uninstall
+name: Test Manifests
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'bucket/*.json'
   pull_request:
     branches:
       - master
@@ -8,8 +13,8 @@ on:
       - 'bucket/*.json'
 
 jobs:
-  test-install:
-    name: Test Install/Uninstall
+  test:
+    name: Test Manifests
     runs-on: windows-latest
     permissions:
       contents: read
@@ -24,17 +29,23 @@ jobs:
         shell: bash
         run: |
           # Get list of changed manifest files
-          # Use the base SHA from the PR event, with fallback to fetching origin/master
-          base_sha="${{ github.event.pull_request.base.sha }}"
-          if [ -z "$base_sha" ]; then
-            git fetch origin master --depth=1
-            base_sha="FETCH_HEAD"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            if [ -z "$base_sha" ]; then
+              git fetch origin master --depth=1
+              base_sha="FETCH_HEAD"
+            fi
+            head_sha="${{ github.sha }}"
+          else
+            # For push events, compare with the previous commit
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
           fi
           
           # Get changed files, handling potential git diff errors
-          if ! changed_files=$(git diff --name-only "$base_sha" "${{ github.sha }}" -- 'bucket/*.json' 2>&1); then
+          if ! changed_files=$(git diff --name-only "$base_sha" "$head_sha" -- 'bucket/*.json' 2>&1); then
             echo "Warning: git diff failed, will test no apps"
-            echo "apps=" >> $GITHUB_OUTPUT
+            echo "apps=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           changed_files=$(echo "$changed_files" | tr '\n' ' ')
@@ -42,14 +53,16 @@ jobs:
           
           # Extract app names (filename without .json extension)
           apps=""
+          # shellcheck disable=SC2086
           for file in $changed_files; do
             if [ -f "$file" ]; then
               app=$(basename "$file" .json)
               apps="$apps $app"
             fi
           done
+          # shellcheck disable=SC2086
           apps=$(echo $apps | xargs) # trim whitespace
-          echo "apps=$apps" >> $GITHUB_OUTPUT
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
           echo "Apps to test: $apps"
 
       - name: Install Scoop
@@ -57,7 +70,6 @@ jobs:
         shell: powershell
         run: |
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-          # Install scoop using the official method from https://scoop.sh/
           iex "& {$(irm get.scoop.sh)}"
           echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
@@ -75,8 +87,53 @@ jobs:
           # Add extras bucket for dependencies
           scoop bucket add extras
 
-      - name: Test install and uninstall
+      - name: Validate manifests
         if: steps.changed.outputs.apps != ''
+        shell: powershell
+        run: |
+          Write-Output "PowerShell: $($PSVersionTable.PSVersion)"
+          Write-Output ""
+          Write-Output "Validating changed manifests..."
+          $appsToTest = "${{ steps.changed.outputs.apps }}" -split " "
+          $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
+          $failed = @()
+          $tested = 0
+          foreach ($appName in $appsToTest) {
+            if ([string]::IsNullOrWhiteSpace($appName)) { continue }
+            $manifestPath = Join-Path $bucketPath "$appName.json"
+            if (-not (Test-Path $manifestPath)) {
+              Write-Output "Skipping $appName - manifest not found (may have been deleted)"
+              continue
+            }
+            Write-Output "Validating manifest: $appName"
+            try {
+              $json = Get-Content $manifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
+              if (-not $json.version) {
+                throw "Missing 'version' field"
+              }
+              if (-not $json.url -and -not $json.architecture) {
+                throw "Missing 'url' or 'architecture' field"
+              }
+              $info = scoop info $appName 2>&1
+              if ($LASTEXITCODE -ne 0) {
+                throw "scoop info failed: $info"
+              }
+              Write-Output "  [OK] $appName is valid"
+              $tested++
+            } catch {
+              Write-Output "  [FAIL] $appName failed: $_"
+              $failed += $appName
+            }
+          }
+          Write-Output ""
+          if ($failed.Count -gt 0) {
+            Write-Error "Failed manifests: $($failed -join ', ')"
+            exit 1
+          }
+          Write-Output "All $tested changed manifests passed validation"
+
+      - name: Test install and uninstall
+        if: steps.changed.outputs.apps != '' && github.event_name == 'pull_request'
         shell: powershell
         run: |
           $apps = "${{ steps.changed.outputs.apps }}" -split " "
@@ -84,6 +141,12 @@ jobs:
           
           foreach ($app in $apps) {
             if ([string]::IsNullOrWhiteSpace($app)) { continue }
+            
+            $manifestPath = Join-Path $env:GITHUB_WORKSPACE "bucket" "$app.json"
+            if (-not (Test-Path $manifestPath)) {
+              Write-Output "Skipping $app - manifest not found (may have been deleted)"
+              continue
+            }
             
             Write-Output ""
             Write-Output "=========================================="
