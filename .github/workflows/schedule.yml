@@ -7,35 +7,29 @@ jobs:
     name: Test Manifests
     runs-on: windows-latest
     steps:
-    - name: Checkout Bucket
+    - name: Checkout
       uses: actions/checkout@main
-      with:
-        path: 'my_bucket'
-    - name: Checkout Scoop
-      uses: actions/checkout@main
-      with:
-        repository: ScoopInstaller/Scoop
-        path: 'scoop_core'
-    - name: Install Test Dependencies
+    - name: Install Scoop
+      shell: powershell
+      run: |
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+        iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+        echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    - name: Test Manifests with Scoop
       shell: powershell
       run: |
         Write-Output "PowerShell: $($PSVersionTable.PSVersion)"
-        Write-Output 'Installing test dependencies...'
-        Install-Module -Repository PSGallery -Scope CurrentUser -Force -Name Pester -MinimumVersion 5.2 -MaximumVersion 5.99 -SkipPublisherCheck
-        Install-Module -Repository PSGallery -Scope CurrentUser -Force -Name PSScriptAnalyzer -SkipPublisherCheck
-        Install-Module -Repository PSGallery -Scope CurrentUser -Force -Name BuildHelpers -SkipPublisherCheck
-    - name: Run Scoop Tests
-      shell: powershell
-      run: |
-        $env:SCOOP_HOME = "$(Convert-Path '.\scoop_core')"
-        $env:CI = $true
-        Import-Module "$env:SCOOP_HOME\lib\core.ps1"
-        Import-Module "$env:SCOOP_HOME\lib\manifest.ps1"
-        $bucketPath = Convert-Path '.\my_bucket\bucket'
+        Write-Output ""
+        Write-Output "Adding bucket for testing..."
+        scoop bucket add test-bucket $PWD
+        Write-Output ""
+        Write-Output "Testing all manifests in bucket..."
+        $bucketPath = Join-Path $PWD "bucket"
         $manifests = Get-ChildItem $bucketPath -Filter '*.json'
         $failed = @()
         foreach ($manifest in $manifests) {
-          Write-Output "Testing manifest: $($manifest.Name)"
+          $appName = [System.IO.Path]::GetFileNameWithoutExtension($manifest.Name)
+          Write-Output "Testing manifest: $appName"
           try {
             $json = Get-Content $manifest.FullName -Raw | ConvertFrom-Json -ErrorAction Stop
             if (-not $json.version) {
@@ -44,12 +38,17 @@ jobs:
             if (-not $json.url -and -not $json.architecture) {
               throw "Missing 'url' or 'architecture' field"
             }
-            Write-Output "  ✓ $($manifest.Name) is valid"
+            $info = scoop info $appName 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              throw "scoop info failed: $info"
+            }
+            Write-Output "  ✓ $appName is valid"
           } catch {
-            Write-Output "  ✗ $($manifest.Name) failed: $_"
-            $failed += $manifest.Name
+            Write-Output "  ✗ $appName failed: $_"
+            $failed += $appName
           }
         }
+        Write-Output ""
         if ($failed.Count -gt 0) {
           Write-Error "Failed manifests: $($failed -join ', ')"
           exit 1
