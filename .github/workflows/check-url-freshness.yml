@@ -132,8 +132,9 @@ jobs:
               echo ""
             } >> "$REPORT_FILE"
             echo "has_updates=true" >> "$GITHUB_OUTPUT"
-            # Output the list of stale apps as a space-separated string
-            echo "stale_apps=${STALE_APPS[*]}" >> "$GITHUB_OUTPUT"
+            # Output the list of stale apps as a comma-separated string (safer than space for parsing)
+            stale_apps_list=$(IFS=,; echo "${STALE_APPS[*]}")
+            echo "stale_apps=$stale_apps_list" >> "$GITHUB_OUTPUT"
           else
             {
               echo "## ✅ No Updated URLs"
@@ -180,17 +181,19 @@ jobs:
       - name: Update stale manifests
         shell: powershell
         run: |
-          $staleApps = "${{ needs.check-url-freshness.outputs.stale_apps }}" -split " "
+          # Split on comma (matching the output format from check job)
+          $staleApps = "${{ needs.check-url-freshness.outputs.stale_apps }}" -split ","
           Write-Output "Stale apps to update: $($staleApps -join ', ')"
           Write-Output ""
 
-          # Add the current directory as a bucket to use checkver
+          # Use the bucket directory from workspace
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
 
           $updatedApps = @()
           $failedApps = @()
 
           foreach ($app in $staleApps) {
+            $app = $app.Trim()
             if ([string]::IsNullOrWhiteSpace($app)) { continue }
 
             $manifestPath = Join-Path $bucketPath "$app.json"
@@ -210,6 +213,7 @@ jobs:
 
               if (Test-Path $checkverScript) {
                 # Run checkver with update flag for the specific app
+                # Note: checkver.ps1 accepts -App (app name), -Dir (manifest directory), and -Update (to update)
                 & $checkverScript -App $app -Dir $bucketPath -Update
                 if ($LASTEXITCODE -eq 0) {
                   Write-Output "[OK] $app checked/updated successfully"
@@ -219,7 +223,7 @@ jobs:
                   $failedApps += $app
                 }
               } else {
-                Write-Output "[ERROR] checkver.ps1 not found at expected location"
+                Write-Output "[ERROR] checkver.ps1 not found at expected location: $checkverScript"
                 $failedApps += $app
               }
             } catch {
