@@ -23,13 +23,36 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Validate workflow files
+      - name: Get changed workflow files
+        id: changed
+        shell: bash
+        run: |
+          # Get list of changed workflow files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+          fi
+          
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            # For new branches or initial commits, check all workflow files
+            changed_files=$(find .github/workflows -name '*.yml' -o -name '*.yaml' 2>/dev/null | tr '\n' ' ')
+          else
+            changed_files=$(git diff --name-only "$base_sha" "${{ github.sha }}" -- '.github/workflows/*.yml' '.github/workflows/*.yaml' 2>/dev/null | tr '\n' ' ')
+          fi
+          
+          echo "Changed workflow files: $changed_files"
+          # shellcheck disable=SC2086
+          echo "files=$changed_files" >> "$GITHUB_OUTPUT"
+
+      - name: Validate changed workflow files
+        if: steps.changed.outputs.files != ''
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-          # Ignore pre-existing issues in other workflow files:
-          # - shellcheck warnings in install-test.yml (SC2086)
-          # - schedule.yml cron frequency warning
-          ./actionlint -color \
-            -ignore 'SC2086' \
-            -ignore 'scheduled job runs too frequently'
+          
+          # Only validate the changed workflow files
+          # shellcheck disable=SC2086
+          ./actionlint -color ${{ steps.changed.outputs.files }}
