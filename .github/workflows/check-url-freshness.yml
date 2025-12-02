@@ -77,9 +77,8 @@ jobs:
 
               # Get Last-Modified header using HEAD request with user agent and limited redirects
               # Capture curl output and exit code, handling failures gracefully with set -e
-              response=""
               curl_exit_code=0
-              response=$(curl -sI -L --max-redirs 5 --max-time 30 -A "$USER_AGENT" "$clean_url" 2>/dev/null) && curl_exit_code=0 || curl_exit_code=$?
+              response=$(curl -sI -L --max-redirs 5 --max-time 30 -A "$USER_AGENT" "$clean_url" 2>/dev/null) || curl_exit_code=$?
               last_modified=$(echo "$response" | grep -i "^last-modified:" | tail -1 | sed 's/^[Ll]ast-[Mm]odified: *//' | tr -d '\r' || true)
 
               if [ -z "$last_modified" ]; then
