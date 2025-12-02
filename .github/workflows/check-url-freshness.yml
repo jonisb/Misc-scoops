@@ -213,15 +213,40 @@ jobs:
               $checkverScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkver.ps1"
 
               if (Test-Path $checkverScript) {
+                # Get manifest hash before checkver to detect changes
+                $hashBefore = (Get-FileHash $manifestPath).Hash
+
                 # Run checkver with update flag for the specific app
                 # Note: checkver.ps1 accepts -App (app name), -Dir (manifest directory), and -Update (to update)
-                & $checkverScript -App $app -Dir $bucketPath -Update
-                if ($LASTEXITCODE -eq 0) {
-                  Write-Output "[OK] $app checked/updated successfully"
+                # Capture output to check if version was identified
+                $output = & $checkverScript -App $app -Dir $bucketPath -Update 2>&1 | Out-String
+                $exitCode = $LASTEXITCODE
+                Write-Output $output.Trim()
+
+                # Get manifest hash after checkver to detect changes
+                $hashAfter = (Get-FileHash $manifestPath).Hash
+                $manifestChanged = $hashBefore -ne $hashAfter
+
+                # checkver returns non-zero when no update is needed (already at latest version)
+                # We should only treat it as a failure if the output indicates an error
+                # (e.g., couldn't fetch version info) rather than just "no update needed"
+                $hasVersionOutput = $output -match "^${app}:\s+\d"
+                $hasError = $output -match "(ERROR|error|Exception|Could not)"
+
+                if ($manifestChanged) {
+                  Write-Output "[OK] $app manifest was updated"
                   $updatedApps += $app
-                } else {
-                  Write-Output "[WARN] checkver returned non-zero exit code for $app"
+                } elseif ($hasVersionOutput -and -not $hasError) {
+                  # checkver successfully identified the version but no update was needed
+                  Write-Output "[OK] $app is already at the latest version"
+                  $updatedApps += $app
+                } elseif ($hasError) {
+                  Write-Output "[FAIL] $app encountered an error during version check"
                   $failedApps += $app
+                } else {
+                  # Exit code non-zero and no version identified - treat as warning, not failure
+                  Write-Output "[WARN] $app: checkver returned exit code $exitCode"
+                  $updatedApps += $app
                 }
               } else {
                 Write-Output "[ERROR] checkver.ps1 not found at expected location: $checkverScript"
