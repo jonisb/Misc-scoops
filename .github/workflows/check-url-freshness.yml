@@ -76,12 +76,19 @@ jobs:
               echo "Checking: $app_name - $clean_url"
 
               # Get Last-Modified header using HEAD request with user agent and limited redirects
-              response=$(curl -sI -L --max-redirs 5 --max-time 30 -A "$USER_AGENT" "$clean_url" 2>/dev/null || echo "")
-              last_modified=$(echo "$response" | grep -i "^last-modified:" | tail -1 | sed 's/^[Ll]ast-[Mm]odified: *//' | tr -d '\r')
+              # Capture curl output and exit code, handling failures gracefully with set -e
+              curl_exit_code=0
+              response=$(curl -sI -L --max-redirs 5 --max-time 30 -A "$USER_AGENT" "$clean_url" 2>/dev/null) || curl_exit_code=$?
+              last_modified=$(echo "$response" | grep -i "^last-modified:" | tail -1 | sed 's/^[Ll]ast-[Mm]odified: *//' | tr -d '\r' || true)
 
               if [ -z "$last_modified" ]; then
-                echo "  Warning: No Last-Modified header found"
-                FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (No Last-Modified header)")
+                if [ "$curl_exit_code" -ne 0 ]; then
+                  echo "  Warning: Connection failed (curl exit code: $curl_exit_code)"
+                  FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (Connection failed, curl exit code: $curl_exit_code)")
+                else
+                  echo "  Warning: No Last-Modified header found"
+                  FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (No Last-Modified header)")
+                fi
                 # Store empty value but continue
                 NEW_TIMESTAMPS=$(jq --arg key "$clean_url" --arg val "" '. + {($key): $val}' "$NEW_TIMESTAMPS_FILE")
                 echo "$NEW_TIMESTAMPS" > "$NEW_TIMESTAMPS_FILE"
@@ -151,9 +158,9 @@ jobs:
 
           if [ ${#FAILED_ITEMS[@]} -gt 0 ]; then
             {
-              echo "## ❌ URLs Without Last-Modified Header"
+              echo "## ❌ URLs With Issues"
               echo ""
-              echo "The following URLs do not provide a Last-Modified header:"
+              echo "The following URLs had issues during checking:"
               echo ""
               printf '%s\n' "${FAILED_ITEMS[@]}"
               echo ""
