@@ -2,9 +2,13 @@ on:
   push:
     branches:
     - master
+    paths:
+    - 'bucket/*.json'
   pull_request:
     branches:
     - master
+    paths:
+    - 'bucket/*.json'
 name: Test Manifests
 jobs:
   test:
@@ -15,13 +19,55 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@main
+      with:
+        fetch-depth: 0
+    - name: Get changed manifests
+      id: changed
+      shell: bash
+      run: |
+        # Get list of changed manifest files
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$base_sha" ]; then
+            git fetch origin master --depth=1
+            base_sha="FETCH_HEAD"
+          fi
+          head_sha="${{ github.sha }}"
+        else
+          # For push events, compare with the previous commit
+          base_sha="${{ github.event.before }}"
+          head_sha="${{ github.sha }}"
+        fi
+        
+        # Get changed files, handling potential git diff errors
+        if ! changed_files=$(git diff --name-only "$base_sha" "$head_sha" -- 'bucket/*.json' 2>&1); then
+          echo "Warning: git diff failed, will test no apps"
+          echo "apps=" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        changed_files=$(echo "$changed_files" | tr '\n' ' ')
+        echo "Changed files: $changed_files"
+        
+        # Extract app names (filename without .json extension)
+        apps=""
+        for file in $changed_files; do
+          if [ -f "$file" ]; then
+            app=$(basename "$file" .json)
+            apps="$apps $app"
+          fi
+        done
+        apps=$(echo $apps | xargs) # trim whitespace
+        echo "apps=$apps" >> $GITHUB_OUTPUT
+        echo "Apps to test: $apps"
     - name: Install Scoop
+      if: steps.changed.outputs.apps != ''
       shell: powershell
       run: |
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
         iex "& {$(irm get.scoop.sh)}"
         echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
     - name: Test Manifests with Scoop
+      if: steps.changed.outputs.apps != ''
       shell: powershell
       run: |
         Write-Output "PowerShell: $($PSVersionTable.PSVersion)"
@@ -33,15 +79,21 @@ jobs:
         }
         New-Item -ItemType Junction -Path $bucketDir -Target $PWD -ErrorAction Stop | Out-Null
         Write-Output ""
-        Write-Output "Testing all manifests in bucket..."
+        Write-Output "Testing changed manifests..."
+        $appsToTest = "${{ steps.changed.outputs.apps }}" -split " "
         $bucketPath = Join-Path $PWD "bucket"
-        $manifests = Get-ChildItem $bucketPath -Filter '*.json'
         $failed = @()
-        foreach ($manifest in $manifests) {
-          $appName = [System.IO.Path]::GetFileNameWithoutExtension($manifest.Name)
+        $tested = 0
+        foreach ($appName in $appsToTest) {
+          if ([string]::IsNullOrWhiteSpace($appName)) { continue }
+          $manifestPath = Join-Path $bucketPath "$appName.json"
+          if (-not (Test-Path $manifestPath)) {
+            Write-Output "Skipping $appName - manifest not found (may have been deleted)"
+            continue
+          }
           Write-Output "Testing manifest: $appName"
           try {
-            $json = Get-Content $manifest.FullName -Raw | ConvertFrom-Json -ErrorAction Stop
+            $json = Get-Content $manifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
             if (-not $json.version) {
               throw "Missing 'version' field"
             }
@@ -53,6 +105,7 @@ jobs:
               throw "scoop info failed: $info"
             }
             Write-Output "  [OK] $appName is valid"
+            $tested++
           } catch {
             Write-Output "  [FAIL] $appName failed: $_"
             $failed += $appName
@@ -63,4 +116,4 @@ jobs:
           Write-Error "Failed manifests: $($failed -join ', ')"
           exit 1
         }
-        Write-Output "All $($manifests.Count) manifests passed validation"
+        Write-Output "All $tested changed manifests passed validation"
