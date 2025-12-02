@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      has_updates: ${{ steps.check.outputs.has_updates }}
+      stale_apps: ${{ steps.check.outputs.stale_apps }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,6 +40,7 @@ jobs:
           # Use arrays for safe string accumulation
           declare -a UPDATED_ITEMS=()
           declare -a FAILED_ITEMS=()
+          declare -a STALE_APPS=()
 
           # Process each manifest file using nullglob to handle no matches gracefully
           shopt -s nullglob
@@ -52,6 +56,9 @@ jobs:
             fi
             manifest_commit_date=$(date -u -d "@$manifest_commit_timestamp" '+%a, %d %b %Y %H:%M:%S GMT')
             echo "Manifest: $app_name (last updated: $manifest_commit_date)"
+
+            # Track if this app has any stale URLs
+            app_is_stale=false
 
             # Extract URLs from the manifest using null delimiter for safe reading
             while IFS= read -r -d '' url; do
@@ -94,6 +101,7 @@ jobs:
               if [ "$url_timestamp" -gt "$manifest_commit_timestamp" ]; then
                 echo "    Status: UPDATED! URL modified after manifest was last updated"
                 UPDATED_ITEMS+=("- **${app_name}**: \`${clean_url}\`" "  - Manifest last updated: ${manifest_commit_date}" "  - URL Last-Modified: ${last_modified}")
+                app_is_stale=true
               else
                 echo "    Status: OK (URL not modified since manifest update)"
               fi
@@ -105,6 +113,11 @@ jobs:
                 .architecture?.arm64?.url
               ] | map(select(. != null)) | .[] | (. + "\u0000")
             ' "$manifest" 2>/dev/null || true)
+
+            # Add to stale apps list if any URL was stale (avoid duplicates)
+            if [ "$app_is_stale" = true ]; then
+              STALE_APPS+=("$app_name")
+            fi
           done
           shopt -u nullglob
 
@@ -119,6 +132,9 @@ jobs:
               echo ""
             } >> "$REPORT_FILE"
             echo "has_updates=true" >> "$GITHUB_OUTPUT"
+            # Output the list of stale apps as a comma-separated string (safer than space for parsing)
+            stale_apps_list=$(IFS=,; echo "${STALE_APPS[*]}")
+            echo "stale_apps=$stale_apps_list" >> "$GITHUB_OUTPUT"
           else
             {
               echo "## ✅ No Updated URLs"
@@ -127,6 +143,7 @@ jobs:
               echo ""
             } >> "$REPORT_FILE"
             echo "has_updates=false" >> "$GITHUB_OUTPUT"
+            echo "stale_apps=" >> "$GITHUB_OUTPUT"
           fi
 
           if [ ${#FAILED_ITEMS[@]} -gt 0 ]; then
@@ -142,3 +159,100 @@ jobs:
 
           # Output report to job summary
           cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+  update-manifests:
+    name: Update Stale Manifests
+    needs: check-url-freshness
+    if: needs.check-url-freshness.outputs.has_updates == 'true'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Scoop
+        shell: powershell
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          iex "& {$(irm get.scoop.sh)}"
+          echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Update stale manifests
+        shell: powershell
+        run: |
+          # Split on comma (matching the output format from check job)
+          $staleApps = "${{ needs.check-url-freshness.outputs.stale_apps }}" -split ","
+          Write-Output "Stale apps to update: $($staleApps -join ', ')"
+          Write-Output ""
+
+          # Use the bucket directory from workspace
+          $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
+
+          $updatedApps = @()
+          $failedApps = @()
+
+          foreach ($app in $staleApps) {
+            $app = $app.Trim()
+            if ([string]::IsNullOrWhiteSpace($app)) { continue }
+
+            $manifestPath = Join-Path $bucketPath "$app.json"
+            if (-not (Test-Path $manifestPath)) {
+              Write-Output "Skipping $app - manifest not found"
+              continue
+            }
+
+            Write-Output "=========================================="
+            Write-Output "Updating: $app"
+            Write-Output "=========================================="
+
+            try {
+              # Use scoop's checkver script to check and update the manifest
+              # The checkver.ps1 script is part of Scoop and can update manifests
+              $checkverScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkver.ps1"
+
+              if (Test-Path $checkverScript) {
+                # Run checkver with update flag for the specific app
+                # Note: checkver.ps1 accepts -App (app name), -Dir (manifest directory), and -Update (to update)
+                & $checkverScript -App $app -Dir $bucketPath -Update
+                if ($LASTEXITCODE -eq 0) {
+                  Write-Output "[OK] $app checked/updated successfully"
+                  $updatedApps += $app
+                } else {
+                  Write-Output "[WARN] checkver returned non-zero exit code for $app"
+                  $failedApps += $app
+                }
+              } else {
+                Write-Output "[ERROR] checkver.ps1 not found at expected location: $checkverScript"
+                $failedApps += $app
+              }
+            } catch {
+              Write-Output "[FAIL] Failed to update $app : $_"
+              $failedApps += $app
+            }
+            Write-Output ""
+          }
+
+          Write-Output "=========================================="
+          Write-Output "Summary"
+          Write-Output "=========================================="
+          Write-Output "Updated apps: $($updatedApps -join ', ')"
+          if ($failedApps.Count -gt 0) {
+            Write-Output "Failed apps: $($failedApps -join ', ')"
+          }
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are any changes to commit
+          if git diff --quiet bucket/; then
+            echo "No manifest changes detected"
+            exit 0
+          fi
+
+          git add bucket/*.json
+          git commit -m "Auto-update stale manifests [skip ci]"
+          git push
