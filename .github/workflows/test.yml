@@ -1,10 +1,10 @@
 on:
   push:
     branches:
-    - main
+    - master
   pull_request:
     branches:
-    - main
+    - master
 name: Test Manifests
 jobs:
   test:
@@ -27,7 +27,11 @@ jobs:
         Write-Output "PowerShell: $($PSVersionTable.PSVersion)"
         Write-Output ""
         Write-Output "Adding bucket for testing..."
-        scoop bucket add test-bucket $PWD
+        $bucketDir = "$env:USERPROFILE\scoop\buckets\test-bucket"
+        if (Test-Path $bucketDir) {
+          Remove-Item $bucketDir -Force -Recurse
+        }
+        New-Item -ItemType Junction -Path $bucketDir -Target $PWD -ErrorAction Stop | Out-Null
         Write-Output ""
         Write-Output "Testing all manifests in bucket..."
         $bucketPath = Join-Path $PWD "bucket"
@@ -48,9 +52,9 @@ jobs:
             if ($LASTEXITCODE -ne 0) {
               throw "scoop info failed: $info"
             }
-            Write-Output "  ✓ $appName is valid"
+            Write-Output "  [OK] $appName is valid"
           } catch {
-            Write-Output "  ✗ $appName failed: $_"
+            Write-Output "  [FAIL] $appName failed: $_"
             $failed += $appName
           }
         }
