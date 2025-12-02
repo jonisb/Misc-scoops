@@ -50,6 +50,7 @@ jobs:
         shell: powershell
         run: |
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          # Install scoop using the official method from https://scoop.sh/
           iex "& {$(irm get.scoop.sh)}"
           echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
@@ -85,7 +86,7 @@ jobs:
             # Test install
             Write-Output "Installing $app..."
             try {
-              scoop install "test-bucket/$app" 2>&1 | Tee-Object -Variable installOutput
+              scoop install "test-bucket/$app"
               if ($LASTEXITCODE -ne 0) {
                 throw "Install failed with exit code $LASTEXITCODE"
               }
@@ -108,7 +109,7 @@ jobs:
             # Test uninstall
             Write-Output "Uninstalling $app..."
             try {
-              scoop uninstall $app 2>&1 | Tee-Object -Variable uninstallOutput
+              scoop uninstall $app
               if ($LASTEXITCODE -ne 0) {
                 throw "Uninstall failed with exit code $LASTEXITCODE"
               }
