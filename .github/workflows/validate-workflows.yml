@@ -36,16 +36,16 @@ jobs:
           else
             base_sha="${{ github.event.before }}"
           fi
-          
+
           if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
             # For new branches or initial commits, check all workflow files
             changed_files=$(find .github/workflows -name '*.yml' -o -name '*.yaml' 2>/dev/null | tr '\n' ' ')
           else
             changed_files=$(git diff --name-only "$base_sha" "${{ github.sha }}" -- '.github/workflows/*.yml' '.github/workflows/*.yaml' 2>/dev/null | tr '\n' ' ')
           fi
-          
+
           echo "Changed workflow files: $changed_files"
-          
+
           # Filter out deleted files (only keep files that exist)
           existing_files=""
           # shellcheck disable=SC2086
@@ -54,7 +54,7 @@ jobs:
               existing_files="${existing_files:+$existing_files }$file"
             fi
           done
-          
+
           echo "Files to validate: $existing_files"
           # shellcheck disable=SC2086
           echo "files=$existing_files" >> "$GITHUB_OUTPUT"
@@ -63,7 +63,7 @@ jobs:
         if: steps.changed.outputs.files != ''
         run: |
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-          
+
           # Only validate the changed workflow files
           # shellcheck disable=SC2086
           ./actionlint -color ${{ steps.changed.outputs.files }}

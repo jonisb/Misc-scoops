@@ -1,16 +1,16 @@
 on:
   schedule:
-  - cron: '* */12 * * *'
+    - cron: '0 */12 * * *'
 name: Excavator
 jobs:
   excavate:
     name: Excavate
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@main
-    - name: Excavate
-      uses: ScoopInstaller/GithubActions@main
-      env:
-        USER_EMAIL: github.com@JsBComputing.se
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SKIP_UPDATED: '1'
+      - uses: actions/checkout@v4
+      - name: Excavate
+        uses: ScoopInstaller/GithubActions@main
+        env:
+          USER_EMAIL: github.com@JsBComputing.se
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKIP_UPDATED: '1'
