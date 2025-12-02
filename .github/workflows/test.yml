@@ -27,7 +27,11 @@ jobs:
         Write-Output "PowerShell: $($PSVersionTable.PSVersion)"
         Write-Output ""
         Write-Output "Adding bucket for testing..."
-        scoop bucket add test-bucket $PWD
+        $bucketDir = "$env:USERPROFILE\scoop\buckets\test-bucket"
+        if (Test-Path $bucketDir) {
+          Remove-Item $bucketDir -Force -Recurse
+        }
+        New-Item -ItemType Junction -Path $bucketDir -Target $PWD -ErrorAction Stop | Out-Null
         Write-Output ""
         Write-Output "Testing all manifests in bucket..."
         $bucketPath = Join-Path $PWD "bucket"
