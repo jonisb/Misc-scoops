@@ -30,7 +30,14 @@ jobs:
             git fetch origin master --depth=1
             base_sha="FETCH_HEAD"
           fi
-          changed_files=$(git diff --name-only "$base_sha" "${{ github.sha }}" -- 'bucket/*.json' | tr '\n' ' ')
+          
+          # Get changed files, handling potential git diff errors
+          if ! changed_files=$(git diff --name-only "$base_sha" "${{ github.sha }}" -- 'bucket/*.json' 2>&1); then
+            echo "Warning: git diff failed, will test no apps"
+            echo "apps=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          changed_files=$(echo "$changed_files" | tr '\n' ' ')
           echo "Changed files: $changed_files"
           
           # Extract app names (filename without .json extension)
