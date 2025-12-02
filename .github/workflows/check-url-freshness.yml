@@ -44,7 +44,12 @@ jobs:
             app_name=$(basename "$manifest" .json)
 
             # Get the last commit date for this manifest file (Unix timestamp)
-            manifest_commit_timestamp=$(git log -1 --format="%ct" -- "$manifest")
+            manifest_commit_timestamp=$(git log -1 --format="%ct" -- "$manifest" 2>/dev/null || echo "")
+            if [ -z "$manifest_commit_timestamp" ]; then
+              echo "Manifest: $app_name (WARNING: No git history found, skipping)"
+              FAILED_ITEMS+=("- **${app_name}**: No git history found for manifest")
+              continue
+            fi
             manifest_commit_date=$(date -u -d "@$manifest_commit_timestamp" '+%a, %d %b %Y %H:%M:%S GMT')
             echo "Manifest: $app_name (last updated: $manifest_commit_date)"
 
@@ -79,7 +84,12 @@ jobs:
               echo "    Last-Modified: $last_modified"
 
               # Convert Last-Modified header to Unix timestamp for comparison
-              url_timestamp=$(date -u -d "$last_modified" '+%s' 2>/dev/null || echo "0")
+              url_timestamp=$(date -u -d "$last_modified" '+%s' 2>/dev/null || echo "")
+              if [ -z "$url_timestamp" ]; then
+                echo "    Warning: Could not parse Last-Modified header"
+                FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (Invalid Last-Modified format: ${last_modified})")
+                continue
+              fi
 
               if [ "$url_timestamp" -gt "$manifest_commit_timestamp" ]; then
                 echo "    Status: UPDATED! URL modified after manifest was last updated"
