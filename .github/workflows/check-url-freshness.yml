@@ -34,6 +34,7 @@ jobs:
           TIMESTAMPS_FILE=".url-timestamps/timestamps.json"
           NEW_TIMESTAMPS_FILE=".url-timestamps-new/timestamps.json"
           REPORT_FILE=".url-timestamps-new/report.md"
+          USER_AGENT="Mozilla/5.0 (compatible; ScoopBucketChecker/1.0; +https://github.com/${{ github.repository }})"
 
           mkdir -p .url-timestamps-new
 
@@ -53,29 +54,18 @@ jobs:
             echo ""
           } > "$REPORT_FILE"
 
-          UPDATED_URLS=""
-          NEW_URLS=""
-          FAILED_URLS=""
+          # Use arrays for safe string accumulation
+          declare -a UPDATED_ITEMS=()
+          declare -a NEW_ITEMS=()
+          declare -a FAILED_ITEMS=()
 
-          # Process each manifest file
+          # Process each manifest file using nullglob to handle no matches gracefully
+          shopt -s nullglob
           for manifest in bucket/*.json; do
-            if [ ! -f "$manifest" ]; then
-              continue
-            fi
-
             app_name=$(basename "$manifest" .json)
 
-            # Extract URLs from the manifest (handles both top-level url and architecture-specific urls)
-            urls=$(jq -r '
-              [
-                .url,
-                .architecture?.["64bit"]?.url,
-                .architecture?.["32bit"]?.url,
-                .architecture?.arm64?.url
-              ] | map(select(. != null)) | .[]
-            ' "$manifest" 2>/dev/null || echo "")
-
-            for url in $urls; do
+            # Extract URLs from the manifest using null delimiter for safe reading
+            while IFS= read -r -d '' url; do
               if [ -z "$url" ] || [ "$url" = "null" ]; then
                 continue
               fi
@@ -85,13 +75,13 @@ jobs:
 
               echo "Checking: $app_name - $clean_url"
 
-              # Get Last-Modified header using HEAD request
-              response=$(curl -sI -L --max-time 30 "$clean_url" 2>/dev/null || echo "")
+              # Get Last-Modified header using HEAD request with user agent and limited redirects
+              response=$(curl -sI -L --max-redirs 5 --max-time 30 -A "$USER_AGENT" "$clean_url" 2>/dev/null || echo "")
               last_modified=$(echo "$response" | grep -i "^last-modified:" | tail -1 | sed 's/^[Ll]ast-[Mm]odified: *//' | tr -d '\r')
 
               if [ -z "$last_modified" ]; then
                 echo "  Warning: No Last-Modified header found"
-                FAILED_URLS="${FAILED_URLS}"$'\n'"- **${app_name}**: ${clean_url} (No Last-Modified header)"
+                FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (No Last-Modified header)")
                 # Store empty value but continue
                 NEW_TIMESTAMPS=$(jq --arg key "$clean_url" --arg val "" '. + {($key): $val}' "$NEW_TIMESTAMPS_FILE")
                 echo "$NEW_TIMESTAMPS" > "$NEW_TIMESTAMPS_FILE"
@@ -109,24 +99,32 @@ jobs:
 
               if [ -z "$prev_timestamp" ]; then
                 echo "  Status: New URL (not previously tracked)"
-                NEW_URLS="${NEW_URLS}"$'\n'"- **${app_name}**: ${clean_url}"$'\n'"  - Last-Modified: ${last_modified}"
+                NEW_ITEMS+=("- **${app_name}**: \`${clean_url}\`" "  - Last-Modified: ${last_modified}")
               elif [ "$prev_timestamp" != "$last_modified" ]; then
                 echo "  Status: UPDATED! (was: $prev_timestamp)"
-                UPDATED_URLS="${UPDATED_URLS}"$'\n'"- **${app_name}**: ${clean_url}"$'\n'"  - Previous: ${prev_timestamp}"$'\n'"  - Current: ${last_modified}"
+                UPDATED_ITEMS+=("- **${app_name}**: \`${clean_url}\`" "  - Previous: ${prev_timestamp}" "  - Current: ${last_modified}")
               else
                 echo "  Status: Unchanged"
               fi
-            done
+            done < <(jq -j '
+              [
+                .url,
+                .architecture?.["64bit"]?.url,
+                .architecture?.["32bit"]?.url,
+                .architecture?.arm64?.url
+              ] | map(select(. != null)) | .[] | (. + "\u0000")
+            ' "$manifest" 2>/dev/null || true)
           done
+          shopt -u nullglob
 
           # Generate report
-          if [ -n "$UPDATED_URLS" ]; then
+          if [ ${#UPDATED_ITEMS[@]} -gt 0 ]; then
             {
               echo "## ⚠️ Updated URLs Detected"
               echo ""
               echo "The following URLs have been modified since the last check:"
               echo ""
-              echo "$UPDATED_URLS"
+              printf '%s\n' "${UPDATED_ITEMS[@]}"
               echo ""
             } >> "$REPORT_FILE"
             echo "has_updates=true" >> "$GITHUB_OUTPUT"
@@ -140,24 +138,24 @@ jobs:
             echo "has_updates=false" >> "$GITHUB_OUTPUT"
           fi
 
-          if [ -n "$NEW_URLS" ]; then
+          if [ ${#NEW_ITEMS[@]} -gt 0 ]; then
             {
               echo "## 🆕 New URLs"
               echo ""
               echo "The following URLs are newly tracked:"
               echo ""
-              echo "$NEW_URLS"
+              printf '%s\n' "${NEW_ITEMS[@]}"
               echo ""
             } >> "$REPORT_FILE"
           fi
 
-          if [ -n "$FAILED_URLS" ]; then
+          if [ ${#FAILED_ITEMS[@]} -gt 0 ]; then
             {
               echo "## ❌ URLs Without Last-Modified Header"
               echo ""
               echo "The following URLs do not provide a Last-Modified header:"
               echo ""
-              echo "$FAILED_URLS"
+              printf '%s\n' "${FAILED_ITEMS[@]}"
               echo ""
             } >> "$REPORT_FILE"
           fi
