@@ -15,7 +15,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -24,7 +24,13 @@ jobs:
         shell: bash
         run: |
           # Get list of changed manifest files
-          changed_files=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} -- 'bucket/*.json' | tr '\n' ' ')
+          # Use the base SHA from the PR event, with fallback to fetching origin/master
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$base_sha" ]; then
+            git fetch origin master --depth=1
+            base_sha="FETCH_HEAD"
+          fi
+          changed_files=$(git diff --name-only "$base_sha" "${{ github.sha }}" -- 'bucket/*.json' | tr '\n' ' ')
           echo "Changed files: $changed_files"
           
           # Extract app names (filename without .json extension)
@@ -56,7 +62,7 @@ jobs:
           if (Test-Path $bucketDir) {
             Remove-Item $bucketDir -Force -Recurse
           }
-          New-Item -ItemType Junction -Path $bucketDir -Target $PWD -ErrorAction Stop | Out-Null
+          New-Item -ItemType Junction -Path $bucketDir -Target $env:GITHUB_WORKSPACE -ErrorAction Stop | Out-Null
           
           # Add extras bucket for dependencies
           scoop bucket add extras
