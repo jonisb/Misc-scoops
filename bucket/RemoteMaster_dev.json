@@ -1,6 +1,6 @@
 {
     "homepage": "https://sourceforge.net/projects/controlremote/",
-    "description": "",
+    "description": "Development version of RemoteMaster, a program for managing IR remotes and creating device upgrades.",
     "version": "3.2.10",
     "license": "Fair License",
     "url": "https://downloads.sourceforge.net/project/controlremote/RMIRDevelopment/RMIR.v3.2.10-bin.zip",

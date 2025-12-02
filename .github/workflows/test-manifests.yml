@@ -41,7 +41,7 @@ jobs:
             base_sha="${{ github.event.before }}"
             head_sha="${{ github.sha }}"
           fi
-          
+
           # Get changed files, handling potential git diff errors
           if ! changed_files=$(git diff --name-only "$base_sha" "$head_sha" -- 'bucket/*.json' 2>&1); then
             echo "Warning: git diff failed, will test no apps"
@@ -50,7 +50,7 @@ jobs:
           fi
           changed_files=$(echo "$changed_files" | tr '\n' ' ')
           echo "Changed files: $changed_files"
-          
+
           # Extract app names (filename without .json extension)
           apps=""
           # shellcheck disable=SC2086
@@ -83,7 +83,7 @@ jobs:
             Remove-Item $bucketDir -Force -Recurse
           }
           New-Item -ItemType Junction -Path $bucketDir -Target $env:GITHUB_WORKSPACE -ErrorAction Stop | Out-Null
-          
+
           # Add extras bucket for dependencies
           scoop bucket add extras
 
@@ -138,21 +138,21 @@ jobs:
         run: |
           $apps = "${{ steps.changed.outputs.apps }}" -split " "
           $failed = @()
-          
+
           foreach ($app in $apps) {
             if ([string]::IsNullOrWhiteSpace($app)) { continue }
-            
+
             $manifestPath = Join-Path $env:GITHUB_WORKSPACE "bucket" "$app.json"
             if (-not (Test-Path $manifestPath)) {
               Write-Output "Skipping $app - manifest not found (may have been deleted)"
               continue
             }
-            
+
             Write-Output ""
             Write-Output "=========================================="
             Write-Output "Testing: $app"
             Write-Output "=========================================="
-            
+
             # Test install
             Write-Output "Installing $app..."
             try {
@@ -166,7 +166,7 @@ jobs:
               $failed += "$app (install)"
               continue
             }
-            
+
             # Verify installation
             Write-Output "Verifying $app installation..."
             $info = scoop info $app 2>&1
@@ -175,7 +175,7 @@ jobs:
             } else {
               Write-Output $info
             }
-            
+
             # Test uninstall
             Write-Output "Uninstalling $app..."
             try {
@@ -189,15 +189,15 @@ jobs:
               $failed += "$app (uninstall)"
             }
           }
-          
+
           Write-Output ""
           Write-Output "=========================================="
           Write-Output "Summary"
           Write-Output "=========================================="
-          
+
           if ($failed.Count -gt 0) {
             Write-Error "Failed tests: $($failed -join ', ')"
             exit 1
           }
-          
+
           Write-Output "All install/uninstall tests passed!"
