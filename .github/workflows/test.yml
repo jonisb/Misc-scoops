@@ -1,15 +1,17 @@
+name: Test Manifests
+
 on:
   push:
     branches:
-    - master
+      - master
     paths:
-    - 'bucket/*.json'
+      - 'bucket/*.json'
   pull_request:
     branches:
-    - master
+      - master
     paths:
-    - 'bucket/*.json'
-name: Test Manifests
+      - 'bucket/*.json'
+
 jobs:
   test:
     name: Test Manifests
@@ -17,103 +19,183 @@ jobs:
     permissions:
       contents: read
     steps:
-    - name: Checkout
-      uses: actions/checkout@main
-      with:
-        fetch-depth: 0
-    - name: Get changed manifests
-      id: changed
-      shell: bash
-      run: |
-        # Get list of changed manifest files
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          base_sha="${{ github.event.pull_request.base.sha }}"
-          if [ -z "$base_sha" ]; then
-            git fetch origin master --depth=1
-            base_sha="FETCH_HEAD"
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed manifests
+        id: changed
+        shell: bash
+        run: |
+          # Get list of changed manifest files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            if [ -z "$base_sha" ]; then
+              git fetch origin master --depth=1
+              base_sha="FETCH_HEAD"
+            fi
+            head_sha="${{ github.sha }}"
+          else
+            # For push events, compare with the previous commit
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
           fi
-          head_sha="${{ github.sha }}"
-        else
-          # For push events, compare with the previous commit
-          base_sha="${{ github.event.before }}"
-          head_sha="${{ github.sha }}"
-        fi
-        
-        # Get changed files, handling potential git diff errors
-        if ! changed_files=$(git diff --name-only "$base_sha" "$head_sha" -- 'bucket/*.json' 2>&1); then
-          echo "Warning: git diff failed, will test no apps"
-          echo "apps=" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-        changed_files=$(echo "$changed_files" | tr '\n' ' ')
-        echo "Changed files: $changed_files"
-        
-        # Extract app names (filename without .json extension)
-        apps=""
-        for file in $changed_files; do
-          if [ -f "$file" ]; then
-            app=$(basename "$file" .json)
-            apps="$apps $app"
+          
+          # Get changed files, handling potential git diff errors
+          if ! changed_files=$(git diff --name-only "$base_sha" "$head_sha" -- 'bucket/*.json' 2>&1); then
+            echo "Warning: git diff failed, will test no apps"
+            echo "apps=" >> $GITHUB_OUTPUT
+            exit 0
           fi
-        done
-        apps=$(echo $apps | xargs) # trim whitespace
-        echo "apps=$apps" >> $GITHUB_OUTPUT
-        echo "Apps to test: $apps"
-    - name: Install Scoop
-      if: steps.changed.outputs.apps != ''
-      shell: powershell
-      run: |
-        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        iex "& {$(irm get.scoop.sh)}"
-        echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-    - name: Test Manifests with Scoop
-      if: steps.changed.outputs.apps != ''
-      shell: powershell
-      run: |
-        Write-Output "PowerShell: $($PSVersionTable.PSVersion)"
-        Write-Output ""
-        Write-Output "Adding bucket for testing..."
-        $bucketDir = "$env:USERPROFILE\scoop\buckets\test-bucket"
-        if (Test-Path $bucketDir) {
-          Remove-Item $bucketDir -Force -Recurse
-        }
-        New-Item -ItemType Junction -Path $bucketDir -Target $PWD -ErrorAction Stop | Out-Null
-        Write-Output ""
-        Write-Output "Testing changed manifests..."
-        $appsToTest = "${{ steps.changed.outputs.apps }}" -split " "
-        $bucketPath = Join-Path $PWD "bucket"
-        $failed = @()
-        $tested = 0
-        foreach ($appName in $appsToTest) {
-          if ([string]::IsNullOrWhiteSpace($appName)) { continue }
-          $manifestPath = Join-Path $bucketPath "$appName.json"
-          if (-not (Test-Path $manifestPath)) {
-            Write-Output "Skipping $appName - manifest not found (may have been deleted)"
-            continue
+          changed_files=$(echo "$changed_files" | tr '\n' ' ')
+          echo "Changed files: $changed_files"
+          
+          # Extract app names (filename without .json extension)
+          apps=""
+          for file in $changed_files; do
+            if [ -f "$file" ]; then
+              app=$(basename "$file" .json)
+              apps="$apps $app"
+            fi
+          done
+          apps=$(echo $apps | xargs) # trim whitespace
+          echo "apps=$apps" >> $GITHUB_OUTPUT
+          echo "Apps to test: $apps"
+
+      - name: Install Scoop
+        if: steps.changed.outputs.apps != ''
+        shell: powershell
+        run: |
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          iex "& {$(irm get.scoop.sh)}"
+          echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Add test bucket
+        if: steps.changed.outputs.apps != ''
+        shell: powershell
+        run: |
+          Write-Output "Adding bucket for testing..."
+          $bucketDir = "$env:USERPROFILE\scoop\buckets\test-bucket"
+          if (Test-Path $bucketDir) {
+            Remove-Item $bucketDir -Force -Recurse
           }
-          Write-Output "Testing manifest: $appName"
-          try {
-            $json = Get-Content $manifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
-            if (-not $json.version) {
-              throw "Missing 'version' field"
+          New-Item -ItemType Junction -Path $bucketDir -Target $env:GITHUB_WORKSPACE -ErrorAction Stop | Out-Null
+          
+          # Add extras bucket for dependencies
+          scoop bucket add extras
+
+      - name: Validate manifests
+        if: steps.changed.outputs.apps != ''
+        shell: powershell
+        run: |
+          Write-Output "PowerShell: $($PSVersionTable.PSVersion)"
+          Write-Output ""
+          Write-Output "Validating changed manifests..."
+          $appsToTest = "${{ steps.changed.outputs.apps }}" -split " "
+          $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
+          $failed = @()
+          $tested = 0
+          foreach ($appName in $appsToTest) {
+            if ([string]::IsNullOrWhiteSpace($appName)) { continue }
+            $manifestPath = Join-Path $bucketPath "$appName.json"
+            if (-not (Test-Path $manifestPath)) {
+              Write-Output "Skipping $appName - manifest not found (may have been deleted)"
+              continue
             }
-            if (-not $json.url -and -not $json.architecture) {
-              throw "Missing 'url' or 'architecture' field"
+            Write-Output "Validating manifest: $appName"
+            try {
+              $json = Get-Content $manifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
+              if (-not $json.version) {
+                throw "Missing 'version' field"
+              }
+              if (-not $json.url -and -not $json.architecture) {
+                throw "Missing 'url' or 'architecture' field"
+              }
+              $info = scoop info $appName 2>&1
+              if ($LASTEXITCODE -ne 0) {
+                throw "scoop info failed: $info"
+              }
+              Write-Output "  [OK] $appName is valid"
+              $tested++
+            } catch {
+              Write-Output "  [FAIL] $appName failed: $_"
+              $failed += $appName
             }
-            $info = scoop info $appName 2>&1
+          }
+          Write-Output ""
+          if ($failed.Count -gt 0) {
+            Write-Error "Failed manifests: $($failed -join ', ')"
+            exit 1
+          }
+          Write-Output "All $tested changed manifests passed validation"
+
+      - name: Test install and uninstall
+        if: steps.changed.outputs.apps != '' && github.event_name == 'pull_request'
+        shell: powershell
+        run: |
+          $apps = "${{ steps.changed.outputs.apps }}" -split " "
+          $failed = @()
+          
+          foreach ($app in $apps) {
+            if ([string]::IsNullOrWhiteSpace($app)) { continue }
+            
+            $manifestPath = Join-Path $env:GITHUB_WORKSPACE "bucket" "$app.json"
+            if (-not (Test-Path $manifestPath)) {
+              Write-Output "Skipping $app - manifest not found (may have been deleted)"
+              continue
+            }
+            
+            Write-Output ""
+            Write-Output "=========================================="
+            Write-Output "Testing: $app"
+            Write-Output "=========================================="
+            
+            # Test install
+            Write-Output "Installing $app..."
+            try {
+              scoop install "test-bucket/$app"
+              if ($LASTEXITCODE -ne 0) {
+                throw "Install failed with exit code $LASTEXITCODE"
+              }
+              Write-Output "[OK] $app installed successfully"
+            } catch {
+              Write-Output "[FAIL] $app install failed: $_"
+              $failed += "$app (install)"
+              continue
+            }
+            
+            # Verify installation
+            Write-Output "Verifying $app installation..."
+            $info = scoop info $app 2>&1
             if ($LASTEXITCODE -ne 0) {
-              throw "scoop info failed: $info"
+              Write-Output "[WARN] Could not get info for $app"
+            } else {
+              Write-Output $info
             }
-            Write-Output "  [OK] $appName is valid"
-            $tested++
-          } catch {
-            Write-Output "  [FAIL] $appName failed: $_"
-            $failed += $appName
+            
+            # Test uninstall
+            Write-Output "Uninstalling $app..."
+            try {
+              scoop uninstall $app
+              if ($LASTEXITCODE -ne 0) {
+                throw "Uninstall failed with exit code $LASTEXITCODE"
+              }
+              Write-Output "[OK] $app uninstalled successfully"
+            } catch {
+              Write-Output "[FAIL] $app uninstall failed: $_"
+              $failed += "$app (uninstall)"
+            }
           }
-        }
-        Write-Output ""
-        if ($failed.Count -gt 0) {
-          Write-Error "Failed manifests: $($failed -join ', ')"
-          exit 1
-        }
-        Write-Output "All $tested changed manifests passed validation"
+          
+          Write-Output ""
+          Write-Output "=========================================="
+          Write-Output "Summary"
+          Write-Output "=========================================="
+          
+          if ($failed.Count -gt 0) {
+            Write-Error "Failed tests: $($failed -join ', ')"
+            exit 1
+          }
+          
+          Write-Output "All install/uninstall tests passed!"
