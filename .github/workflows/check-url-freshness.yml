@@ -1,0 +1,174 @@
+name: Check URL Freshness
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # Run daily at 6 AM UTC
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  check-url-freshness:
+    name: Check URL Freshness
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download previous timestamps
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: url-timestamps
+          path: .url-timestamps
+          if_no_artifact_found: warn
+          workflow_conclusion: success
+          search_artifacts: true
+        continue-on-error: true
+
+      - name: Check URL freshness
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TIMESTAMPS_FILE=".url-timestamps/timestamps.json"
+          NEW_TIMESTAMPS_FILE=".url-timestamps-new/timestamps.json"
+          REPORT_FILE=".url-timestamps-new/report.md"
+
+          mkdir -p .url-timestamps-new
+
+          # Initialize previous timestamps
+          if [ -f "$TIMESTAMPS_FILE" ]; then
+            PREV_TIMESTAMPS=$(cat "$TIMESTAMPS_FILE")
+          else
+            PREV_TIMESTAMPS="{}"
+          fi
+
+          # Initialize new timestamps and report
+          echo "{}" > "$NEW_TIMESTAMPS_FILE"
+          {
+            echo "# URL Freshness Report"
+            echo ""
+            echo "Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+          } > "$REPORT_FILE"
+
+          UPDATED_URLS=""
+          NEW_URLS=""
+          FAILED_URLS=""
+
+          # Process each manifest file
+          for manifest in bucket/*.json; do
+            if [ ! -f "$manifest" ]; then
+              continue
+            fi
+
+            app_name=$(basename "$manifest" .json)
+
+            # Extract URLs from the manifest (handles both top-level url and architecture-specific urls)
+            urls=$(jq -r '
+              [
+                .url,
+                .architecture?.["64bit"]?.url,
+                .architecture?.["32bit"]?.url,
+                .architecture?.arm64?.url
+              ] | map(select(. != null)) | .[]
+            ' "$manifest" 2>/dev/null || echo "")
+
+            for url in $urls; do
+              if [ -z "$url" ] || [ "$url" = "null" ]; then
+                continue
+              fi
+
+              # Remove fragment from URL (e.g., #/dl.exe) using bash parameter expansion
+              clean_url="${url%%#*}"
+
+              echo "Checking: $app_name - $clean_url"
+
+              # Get Last-Modified header using HEAD request
+              response=$(curl -sI -L --max-time 30 "$clean_url" 2>/dev/null || echo "")
+              last_modified=$(echo "$response" | grep -i "^last-modified:" | tail -1 | sed 's/^[Ll]ast-[Mm]odified: *//' | tr -d '\r')
+
+              if [ -z "$last_modified" ]; then
+                echo "  Warning: No Last-Modified header found"
+                FAILED_URLS="${FAILED_URLS}"$'\n'"- **${app_name}**: ${clean_url} (No Last-Modified header)"
+                # Store empty value but continue
+                NEW_TIMESTAMPS=$(jq --arg key "$clean_url" --arg val "" '. + {($key): $val}' "$NEW_TIMESTAMPS_FILE")
+                echo "$NEW_TIMESTAMPS" > "$NEW_TIMESTAMPS_FILE"
+                continue
+              fi
+
+              echo "  Last-Modified: $last_modified"
+
+              # Store new timestamp
+              NEW_TIMESTAMPS=$(jq --arg key "$clean_url" --arg val "$last_modified" '. + {($key): $val}' "$NEW_TIMESTAMPS_FILE")
+              echo "$NEW_TIMESTAMPS" > "$NEW_TIMESTAMPS_FILE"
+
+              # Get previous timestamp
+              prev_timestamp=$(echo "$PREV_TIMESTAMPS" | jq -r --arg key "$clean_url" '.[$key] // ""')
+
+              if [ -z "$prev_timestamp" ]; then
+                echo "  Status: New URL (not previously tracked)"
+                NEW_URLS="${NEW_URLS}"$'\n'"- **${app_name}**: ${clean_url}"$'\n'"  - Last-Modified: ${last_modified}"
+              elif [ "$prev_timestamp" != "$last_modified" ]; then
+                echo "  Status: UPDATED! (was: $prev_timestamp)"
+                UPDATED_URLS="${UPDATED_URLS}"$'\n'"- **${app_name}**: ${clean_url}"$'\n'"  - Previous: ${prev_timestamp}"$'\n'"  - Current: ${last_modified}"
+              else
+                echo "  Status: Unchanged"
+              fi
+            done
+          done
+
+          # Generate report
+          if [ -n "$UPDATED_URLS" ]; then
+            {
+              echo "## ⚠️ Updated URLs Detected"
+              echo ""
+              echo "The following URLs have been modified since the last check:"
+              echo ""
+              echo "$UPDATED_URLS"
+              echo ""
+            } >> "$REPORT_FILE"
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "## ✅ No Updated URLs"
+              echo ""
+              echo "All tracked URLs have the same Last-Modified dates as the previous check."
+              echo ""
+            } >> "$REPORT_FILE"
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ -n "$NEW_URLS" ]; then
+            {
+              echo "## 🆕 New URLs"
+              echo ""
+              echo "The following URLs are newly tracked:"
+              echo ""
+              echo "$NEW_URLS"
+              echo ""
+            } >> "$REPORT_FILE"
+          fi
+
+          if [ -n "$FAILED_URLS" ]; then
+            {
+              echo "## ❌ URLs Without Last-Modified Header"
+              echo ""
+              echo "The following URLs do not provide a Last-Modified header:"
+              echo ""
+              echo "$FAILED_URLS"
+              echo ""
+            } >> "$REPORT_FILE"
+          fi
+
+          # Output report to job summary
+          cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload new timestamps
+        uses: actions/upload-artifact@v4
+        with:
+          name: url-timestamps
+          path: .url-timestamps-new/timestamps.json
+          retention-days: 90
+          overwrite: true
