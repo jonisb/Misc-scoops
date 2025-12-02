@@ -230,8 +230,8 @@ jobs:
                 # checkver returns non-zero when no update is needed (already at latest version)
                 # We should only treat it as a failure if the output indicates an error
                 # (e.g., couldn't fetch version info) rather than just "no update needed"
-                $hasVersionOutput = $output -match "^${app}:\s+\d"
-                $hasError = $output -match "(ERROR|error|Exception|Could not)"
+                $hasVersionOutput = $output -match "(?m)^${app}:\s+[\d\.]"
+                $hasError = $output -match "(?i)(error|exception|could not|failed|unable to|timeout)"
 
                 if ($manifestChanged) {
                   Write-Output "[OK] $app manifest was updated"
