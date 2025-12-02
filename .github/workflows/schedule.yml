@@ -3,8 +3,61 @@ on:
   - cron: '* */12 * * *'
 name: Excavator
 jobs:
+  test:
+    name: Test Manifests
+    runs-on: windows-latest
+    steps:
+    - name: Checkout Bucket
+      uses: actions/checkout@main
+      with:
+        path: 'my_bucket'
+    - name: Checkout Scoop
+      uses: actions/checkout@main
+      with:
+        repository: ScoopInstaller/Scoop
+        path: 'scoop_core'
+    - name: Install Test Dependencies
+      shell: powershell
+      run: |
+        Write-Output "PowerShell: $($PSVersionTable.PSVersion)"
+        Write-Output 'Installing test dependencies...'
+        Install-Module -Repository PSGallery -Scope CurrentUser -Force -Name Pester -MinimumVersion 5.2 -MaximumVersion 5.99 -SkipPublisherCheck
+        Install-Module -Repository PSGallery -Scope CurrentUser -Force -Name PSScriptAnalyzer -SkipPublisherCheck
+        Install-Module -Repository PSGallery -Scope CurrentUser -Force -Name BuildHelpers -SkipPublisherCheck
+    - name: Run Scoop Tests
+      shell: powershell
+      run: |
+        $env:SCOOP_HOME = "$(Convert-Path '.\scoop_core')"
+        $env:CI = $true
+        Import-Module "$env:SCOOP_HOME\lib\core.ps1"
+        Import-Module "$env:SCOOP_HOME\lib\manifest.ps1"
+        $bucketPath = Convert-Path '.\my_bucket\bucket'
+        $manifests = Get-ChildItem $bucketPath -Filter '*.json'
+        $failed = @()
+        foreach ($manifest in $manifests) {
+          Write-Output "Testing manifest: $($manifest.Name)"
+          try {
+            $json = Get-Content $manifest.FullName -Raw | ConvertFrom-Json -ErrorAction Stop
+            if (-not $json.version) {
+              throw "Missing 'version' field"
+            }
+            if (-not $json.url -and -not $json.architecture) {
+              throw "Missing 'url' or 'architecture' field"
+            }
+            Write-Output "  ✓ $($manifest.Name) is valid"
+          } catch {
+            Write-Output "  ✗ $($manifest.Name) failed: $_"
+            $failed += $manifest.Name
+          }
+        }
+        if ($failed.Count -gt 0) {
+          Write-Error "Failed manifests: $($failed -join ', ')"
+          exit 1
+        }
+        Write-Output "All $($manifests.Count) manifests passed validation"
   excavate:
     name: Excavate
+    needs: test
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@main
