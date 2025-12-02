@@ -142,7 +142,7 @@ jobs:
           foreach ($app in $apps) {
             if ([string]::IsNullOrWhiteSpace($app)) { continue }
 
-            $manifestPath = Join-Path $env:GITHUB_WORKSPACE "bucket" "$app.json"
+            $manifestPath = Join-Path (Join-Path $env:GITHUB_WORKSPACE "bucket") "$app.json"
             if (-not (Test-Path $manifestPath)) {
               Write-Output "Skipping $app - manifest not found (may have been deleted)"
               continue
