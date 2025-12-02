@@ -14,16 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Download previous timestamps
-        uses: dawidd6/action-download-artifact@v6
         with:
-          name: url-timestamps
-          path: .url-timestamps
-          if_no_artifact_found: warn
-          workflow_conclusion: success
-          search_artifacts: true
-        continue-on-error: true
+          fetch-depth: 0 # Full history needed to get manifest last commit dates
 
       - name: Check URL freshness
         id: check
@@ -31,22 +23,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          TIMESTAMPS_FILE=".url-timestamps/timestamps.json"
-          NEW_TIMESTAMPS_FILE=".url-timestamps-new/timestamps.json"
-          REPORT_FILE=".url-timestamps-new/report.md"
+          REPORT_FILE="/tmp/report.md"
           USER_AGENT="Mozilla/5.0 (compatible; ScoopBucketChecker/1.0; +https://github.com/${{ github.repository }})"
 
-          mkdir -p .url-timestamps-new
-
-          # Initialize previous timestamps
-          if [ -f "$TIMESTAMPS_FILE" ]; then
-            PREV_TIMESTAMPS=$(cat "$TIMESTAMPS_FILE")
-          else
-            PREV_TIMESTAMPS="{}"
-          fi
-
-          # Initialize new timestamps and report
-          echo "{}" > "$NEW_TIMESTAMPS_FILE"
+          # Initialize report
           {
             echo "# URL Freshness Report"
             echo ""
@@ -56,13 +36,17 @@ jobs:
 
           # Use arrays for safe string accumulation
           declare -a UPDATED_ITEMS=()
-          declare -a NEW_ITEMS=()
           declare -a FAILED_ITEMS=()
 
           # Process each manifest file using nullglob to handle no matches gracefully
           shopt -s nullglob
           for manifest in bucket/*.json; do
             app_name=$(basename "$manifest" .json)
+
+            # Get the last commit date for this manifest file (Unix timestamp)
+            manifest_commit_timestamp=$(git log -1 --format="%ct" -- "$manifest")
+            manifest_commit_date=$(date -u -d "@$manifest_commit_timestamp" '+%a, %d %b %Y %H:%M:%S GMT')
+            echo "Manifest: $app_name (last updated: $manifest_commit_date)"
 
             # Extract URLs from the manifest using null delimiter for safe reading
             while IFS= read -r -d '' url; do
@@ -73,7 +57,7 @@ jobs:
               # Remove fragment from URL (e.g., #/dl.exe) using bash parameter expansion
               clean_url="${url%%#*}"
 
-              echo "Checking: $app_name - $clean_url"
+              echo "  Checking URL: $clean_url"
 
               # Get Last-Modified header using HEAD request with user agent and limited redirects
               # Capture curl output and exit code, handling failures gracefully with set -e
@@ -83,35 +67,25 @@ jobs:
 
               if [ -z "$last_modified" ]; then
                 if [ "$curl_exit_code" -ne 0 ]; then
-                  echo "  Warning: Connection failed (curl exit code: $curl_exit_code)"
+                  echo "    Warning: Connection failed (curl exit code: $curl_exit_code)"
                   FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (Connection failed, curl exit code: $curl_exit_code)")
                 else
-                  echo "  Warning: No Last-Modified header found"
+                  echo "    Warning: No Last-Modified header found"
                   FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (No Last-Modified header)")
                 fi
-                # Store empty value but continue
-                NEW_TIMESTAMPS=$(jq --arg key "$clean_url" --arg val "" '. + {($key): $val}' "$NEW_TIMESTAMPS_FILE")
-                echo "$NEW_TIMESTAMPS" > "$NEW_TIMESTAMPS_FILE"
                 continue
               fi
 
-              echo "  Last-Modified: $last_modified"
+              echo "    Last-Modified: $last_modified"
 
-              # Store new timestamp
-              NEW_TIMESTAMPS=$(jq --arg key "$clean_url" --arg val "$last_modified" '. + {($key): $val}' "$NEW_TIMESTAMPS_FILE")
-              echo "$NEW_TIMESTAMPS" > "$NEW_TIMESTAMPS_FILE"
+              # Convert Last-Modified header to Unix timestamp for comparison
+              url_timestamp=$(date -u -d "$last_modified" '+%s' 2>/dev/null || echo "0")
 
-              # Get previous timestamp
-              prev_timestamp=$(echo "$PREV_TIMESTAMPS" | jq -r --arg key "$clean_url" '.[$key] // ""')
-
-              if [ -z "$prev_timestamp" ]; then
-                echo "  Status: New URL (not previously tracked)"
-                NEW_ITEMS+=("- **${app_name}**: \`${clean_url}\`" "  - Last-Modified: ${last_modified}")
-              elif [ "$prev_timestamp" != "$last_modified" ]; then
-                echo "  Status: UPDATED! (was: $prev_timestamp)"
-                UPDATED_ITEMS+=("- **${app_name}**: \`${clean_url}\`" "  - Previous: ${prev_timestamp}" "  - Current: ${last_modified}")
+              if [ "$url_timestamp" -gt "$manifest_commit_timestamp" ]; then
+                echo "    Status: UPDATED! URL modified after manifest was last updated"
+                UPDATED_ITEMS+=("- **${app_name}**: \`${clean_url}\`" "  - Manifest last updated: ${manifest_commit_date}" "  - URL Last-Modified: ${last_modified}")
               else
-                echo "  Status: Unchanged"
+                echo "    Status: OK (URL not modified since manifest update)"
               fi
             done < <(jq -j '
               [
@@ -127,9 +101,9 @@ jobs:
           # Generate report
           if [ ${#UPDATED_ITEMS[@]} -gt 0 ]; then
             {
-              echo "## ⚠️ Updated URLs Detected"
+              echo "## ⚠️ URLs Updated Since Manifest Change"
               echo ""
-              echo "The following URLs have been modified since the last check:"
+              echo "The following URLs have been modified since their manifest was last updated:"
               echo ""
               printf '%s\n' "${UPDATED_ITEMS[@]}"
               echo ""
@@ -139,21 +113,10 @@ jobs:
             {
               echo "## ✅ No Updated URLs"
               echo ""
-              echo "All tracked URLs have the same Last-Modified dates as the previous check."
+              echo "All URLs have not been modified since their manifest was last updated."
               echo ""
             } >> "$REPORT_FILE"
             echo "has_updates=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if [ ${#NEW_ITEMS[@]} -gt 0 ]; then
-            {
-              echo "## 🆕 New URLs"
-              echo ""
-              echo "The following URLs are newly tracked:"
-              echo ""
-              printf '%s\n' "${NEW_ITEMS[@]}"
-              echo ""
-            } >> "$REPORT_FILE"
           fi
 
           if [ ${#FAILED_ITEMS[@]} -gt 0 ]; then
@@ -169,11 +132,3 @@ jobs:
 
           # Output report to job summary
           cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload new timestamps
-        uses: actions/upload-artifact@v4
-        with:
-          name: url-timestamps
-          path: .url-timestamps-new/timestamps.json
-          retention-days: 90
-          overwrite: true
