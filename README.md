@@ -1,2 +1,2 @@
 # Misc-scoops
- My Scoop bucket of misc apps
+My Scoop bucket of misc apps
