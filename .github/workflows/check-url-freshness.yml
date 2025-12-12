@@ -245,7 +245,7 @@ jobs:
                 $failedApps += $app
               } else {
                 # Exit code non-zero and no version identified - track as skipped
-                Write-Output "[SKIP] $app: checkver returned exit code $exitCode without version info"
+                Write-Output "[SKIP] ${app}: checkver returned exit code $exitCode without version info"
                 $skippedApps += $app
               }
             } catch {
