@@ -178,6 +178,15 @@ jobs:
           iex "& {$(irm get.scoop.sh)}"
           echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
+      - name: Add bucket to Scoop
+        shell: powershell
+        run: |
+          # Add the bucket directory as a local bucket for checkver to work properly
+          $bucketName = "temp-local-bucket"
+          $bucketPath = $env:GITHUB_WORKSPACE
+          Write-Output "Adding bucket '$bucketName' from '$bucketPath'"
+          scoop bucket add $bucketName $bucketPath
+
       - name: Update stale manifests
         id: update
         shell: powershell
@@ -209,50 +218,41 @@ jobs:
             Write-Output "=========================================="
 
             try {
-              # Use scoop's checkver script to check and update the manifest
-              # The checkver.ps1 script is part of Scoop and can update manifests
-              $checkverScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkver.ps1"
+              # Get manifest hash before checkver to detect changes
+              $hashBefore = (Get-FileHash $manifestPath).Hash
 
-              if (Test-Path $checkverScript) {
-                # Get manifest hash before checkver to detect changes
-                $hashBefore = (Get-FileHash $manifestPath).Hash
+              # Use scoop checkver command with the temporary bucket
+              # The -u flag enables auto-update of the manifest
+              $bucketName = "temp-local-bucket"
+              $output = scoop checkver "${bucketName}/$app" -u 2>&1 | Out-String
+              $exitCode = $LASTEXITCODE
+              Write-Output $output.Trim()
 
-                # Run checkver with update flag for the specific app
-                # Note: checkver.ps1 accepts -App (app name), -Dir (manifest directory), and -Update (to update)
-                # Capture output to check if version was identified
-                $output = & $checkverScript -App $app -Dir $bucketPath -Update 2>&1 | Out-String
-                $exitCode = $LASTEXITCODE
-                Write-Output $output.Trim()
+              # Get manifest hash after checkver to detect changes
+              $hashAfter = (Get-FileHash $manifestPath).Hash
+              $manifestChanged = $hashBefore -ne $hashAfter
 
-                # Get manifest hash after checkver to detect changes
-                $hashAfter = (Get-FileHash $manifestPath).Hash
-                $manifestChanged = $hashBefore -ne $hashAfter
+              # checkver returns non-zero when no update is needed (already at latest version)
+              # We should only treat it as a failure if the output indicates an error
+              # (e.g., couldn't fetch version info) rather than just "no update needed"
+              # Match version patterns like "appname: 1.0.0" or "appname: 1.2.3.4"
+              $hasVersionOutput = $output -match "(?m)^${app}:\s+\d+(\.\d+)*"
+              $hasError = $output -match "(?i)(error|exception|could not|failed|unable to|timeout)"
 
-                # checkver returns non-zero when no update is needed (already at latest version)
-                # We should only treat it as a failure if the output indicates an error
-                # (e.g., couldn't fetch version info) rather than just "no update needed"
-                # Match version patterns like "appname: 1.0.0" or "appname: 1.2.3.4"
-                $hasVersionOutput = $output -match "(?m)^${app}:\s+\d+(\.\d+)*"
-                $hasError = $output -match "(?i)(error|exception|could not|failed|unable to|timeout)"
-
-                if ($manifestChanged) {
-                  Write-Output "[OK] $app manifest was updated"
-                  $updatedApps += $app
-                } elseif ($hasVersionOutput -and -not $hasError) {
-                  # checkver successfully identified the version but no update was needed
-                  Write-Output "[OK] $app is already at the latest version"
-                  $updatedApps += $app
-                } elseif ($hasError) {
-                  Write-Output "[FAIL] $app encountered an error during version check"
-                  $failedApps += $app
-                } else {
-                  # Exit code non-zero and no version identified - track as skipped
-                  Write-Output "[SKIP] $app: checkver returned exit code $exitCode without version info"
-                  $skippedApps += $app
-                }
-              } else {
-                Write-Output "[ERROR] checkver.ps1 not found at expected location: $checkverScript"
+              if ($manifestChanged) {
+                Write-Output "[OK] $app manifest was updated"
+                $updatedApps += $app
+              } elseif ($hasVersionOutput -and -not $hasError) {
+                # checkver successfully identified the version but no update was needed
+                Write-Output "[OK] $app is already at the latest version"
+                $updatedApps += $app
+              } elseif ($hasError) {
+                Write-Output "[FAIL] $app encountered an error during version check"
                 $failedApps += $app
+              } else {
+                # Exit code non-zero and no version identified - track as skipped
+                Write-Output "[SKIP] $app: checkver returned exit code $exitCode without version info"
+                $skippedApps += $app
               }
             } catch {
               Write-Output "[FAIL] Failed to update $app : $_"
