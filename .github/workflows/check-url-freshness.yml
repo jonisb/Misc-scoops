@@ -187,7 +187,7 @@ jobs:
           Write-Output "Stale apps to update: $($staleApps -join ', ')"
           Write-Output ""
 
-          # Change to repository root directory for checkver to work
+          # Change to repository root directory for checkhashes to work
           Set-Location $env:GITHUB_WORKSPACE
 
           # Get bucket path for manifest validation
@@ -212,45 +212,44 @@ jobs:
             Write-Output "=========================================="
 
             try {
-              # Get manifest hash before checkver to detect changes
+              # Get manifest hash before checkhashes to detect changes
               $hashBefore = (Get-FileHash $manifestPath).Hash
 
-              # Run checkver script directly (checkver is not a scoop command, it's a script)
-              # The script is located at bin\checkver.ps1 in the Scoop installation
-              # The -Update flag enables auto-update of the manifest
+              # Run checkhashes script directly (checkhashes is not a scoop command, it's a script)
+              # The script is located at bin\checkhashes.ps1 in the Scoop installation
+              # The -Update flag enables auto-update of the manifest hashes
               # The -Dir parameter specifies the bucket directory
-              $checkverScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkver.ps1"
-              if (-not (Test-Path $checkverScript)) {
-                throw "checkver.ps1 script not found at: $checkverScript"
+              $checkhashesScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkhashes.ps1"
+              if (-not (Test-Path $checkhashesScript)) {
+                throw "checkhashes.ps1 script not found at: $checkhashesScript"
               }
-              $output = & $checkverScript -App $app -Dir $env:GITHUB_WORKSPACE -Update 2>&1 | Out-String
+              $output = & $checkhashesScript -App $app -Dir $env:GITHUB_WORKSPACE -Update 2>&1 | Out-String
               $exitCode = $LASTEXITCODE
               Write-Output $output.Trim()
 
-              # Get manifest hash after checkver to detect changes
+              # Get manifest hash after checkhashes to detect changes
               $hashAfter = (Get-FileHash $manifestPath).Hash
               $manifestChanged = $hashBefore -ne $hashAfter
 
-              # checkver returns non-zero when no update is needed (already at latest version)
+              # checkhashes returns non-zero when there are hash mismatches
               # We should only treat it as a failure if the output indicates an error
-              # (e.g., couldn't fetch version info) rather than just "no update needed"
-              # Match version patterns like "appname: 1.0.0" or "appname: 1.2.3.4"
-              $hasVersionOutput = $output -match "(?m)^${app}:\s+\d+(\.\d+)*"
+              # Match patterns indicating hash verification or errors
+              $hasOkOutput = $output -match "(?i)\bOK\b"
               $hasError = $output -match "(?i)(error|exception|could not|failed|unable to|timeout)"
 
               if ($manifestChanged) {
-                Write-Output "[OK] $app manifest was updated"
+                Write-Output "[OK] $app manifest hashes were updated"
                 $updatedApps += $app
-              } elseif ($hasVersionOutput -and -not $hasError) {
-                # checkver successfully identified the version but no update was needed
-                Write-Output "[OK] $app is already at the latest version"
+              } elseif ($hasOkOutput -and -not $hasError) {
+                # checkhashes successfully verified hashes
+                Write-Output "[OK] $app hashes are correct"
                 $updatedApps += $app
               } elseif ($hasError) {
-                Write-Output "[FAIL] $app encountered an error during version check"
+                Write-Output "[FAIL] $app encountered an error during hash check"
                 $failedApps += $app
               } else {
-                # Exit code non-zero and no version identified - track as skipped
-                Write-Output "[SKIP] ${app}: checkver returned exit code $exitCode without version info"
+                # Exit code non-zero and no clear status - track as skipped
+                Write-Output "[SKIP] ${app}: checkhashes returned exit code $exitCode without clear status"
                 $skippedApps += $app
               }
             } catch {
@@ -284,7 +283,7 @@ jobs:
           }
 
           if ($skippedApps.Count -gt 0) {
-            "### ⚠️ Skipped Apps (checkver returned without version info)`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            "### ⚠️ Skipped Apps (checkhashes returned without clear status)`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
             foreach ($app in $skippedApps) {
               "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
             }
