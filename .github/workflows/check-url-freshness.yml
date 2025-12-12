@@ -220,6 +220,9 @@ jobs:
               # The -Update flag enables auto-update of the manifest
               # The -Dir parameter specifies the bucket directory
               $checkverScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkver.ps1"
+              if (-not (Test-Path $checkverScript)) {
+                throw "checkver.ps1 script not found at: $checkverScript"
+              }
               $output = & $checkverScript -App $app -Dir $env:GITHUB_WORKSPACE -Update 2>&1 | Out-String
               $exitCode = $LASTEXITCODE
               Write-Output $output.Trim()
