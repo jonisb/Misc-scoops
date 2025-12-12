@@ -190,7 +190,7 @@ jobs:
           # Change to repository root directory for checkver to work
           Set-Location $env:GITHUB_WORKSPACE
 
-          # Use the bucket directory from workspace
+          # Get bucket path for manifest validation
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
 
           $updatedApps = @()
