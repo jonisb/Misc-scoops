@@ -178,15 +178,6 @@ jobs:
           iex "& {$(irm get.scoop.sh)}"
           echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Add bucket to Scoop
-        shell: powershell
-        run: |
-          # Add the bucket directory as a local bucket for checkver to work properly
-          $bucketName = "temp-local-bucket"
-          $bucketPath = $env:GITHUB_WORKSPACE
-          Write-Output "Adding bucket '$bucketName' from '$bucketPath'"
-          scoop bucket add $bucketName $bucketPath
-
       - name: Update stale manifests
         id: update
         shell: powershell
@@ -196,10 +187,11 @@ jobs:
           Write-Output "Stale apps to update: $($staleApps -join ', ')"
           Write-Output ""
 
+          # Change to repository root directory for checkver to work
+          Set-Location $env:GITHUB_WORKSPACE
+
           # Use the bucket directory from workspace
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
-          # Define the bucket name used in the "Add bucket to Scoop" step
-          $bucketName = "temp-local-bucket"
 
           $updatedApps = @()
           $skippedApps = @()
@@ -223,9 +215,10 @@ jobs:
               # Get manifest hash before checkver to detect changes
               $hashBefore = (Get-FileHash $manifestPath).Hash
 
-              # Use scoop checkver command with the temporary bucket
+              # Run checkver from the repository root (where bucket/ directory exists)
+              # This allows scoop checkver to find and update ./bucket/app.json
               # The -u flag enables auto-update of the manifest
-              $output = scoop checkver "${bucketName}/$app" -u 2>&1 | Out-String
+              $output = scoop checkver $app -u 2>&1 | Out-String
               $exitCode = $LASTEXITCODE
               Write-Output $output.Trim()
 
