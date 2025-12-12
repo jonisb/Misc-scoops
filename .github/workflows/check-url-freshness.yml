@@ -215,10 +215,15 @@ jobs:
               # Get manifest hash before checkver to detect changes
               $hashBefore = (Get-FileHash $manifestPath).Hash
 
-              # Run checkver from the repository root (where bucket/ directory exists)
-              # This allows scoop checkver to find and update ./bucket/app.json
-              # The -u flag enables auto-update of the manifest
-              $output = scoop checkver $app -u 2>&1 | Out-String
+              # Run checkver script directly (checkver is not a scoop command, it's a script)
+              # The script is located at bin\checkver.ps1 in the Scoop installation
+              # The -Update flag enables auto-update of the manifest
+              # The -Dir parameter specifies the bucket directory
+              $checkverScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkver.ps1"
+              if (-not (Test-Path $checkverScript)) {
+                throw "checkver.ps1 script not found at: $checkverScript"
+              }
+              $output = & $checkverScript -App $app -Dir $env:GITHUB_WORKSPACE -Update 2>&1 | Out-String
               $exitCode = $LASTEXITCODE
               Write-Output $output.Trim()
 
