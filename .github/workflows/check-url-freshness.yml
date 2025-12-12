@@ -187,7 +187,7 @@ jobs:
           Write-Output "Stale apps to update: $($staleApps -join ', ')"
           Write-Output ""
 
-          # Change to repository root directory for checkver to work
+          # Change to repository root directory for checkhashes to work
           Set-Location $env:GITHUB_WORKSPACE
 
           # Get bucket path for manifest validation
@@ -233,9 +233,8 @@ jobs:
 
               # checkhashes returns non-zero when there are hash mismatches
               # We should only treat it as a failure if the output indicates an error
-              # Match patterns indicating hash verification: "OK" or hash mismatch patterns
+              # Match patterns indicating hash verification or errors
               $hasOkOutput = $output -match "(?i)\bOK\b"
-              $hasMismatch = $output -match "(?i)(mismatch|wrong hash|incorrect hash)"
               $hasError = $output -match "(?i)(error|exception|could not|failed|unable to|timeout)"
 
               if ($manifestChanged) {
