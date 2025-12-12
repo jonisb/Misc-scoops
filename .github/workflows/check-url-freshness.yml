@@ -178,12 +178,6 @@ jobs:
           iex "& {$(irm get.scoop.sh)}"
           echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-      - name: Add bucket to Scoop
-        shell: powershell
-        run: |
-          # Add the current repository as a Scoop bucket so checkver can work
-          scoop bucket add local-bucket $env:GITHUB_WORKSPACE
-
       - name: Update stale manifests
         id: update
         shell: powershell
@@ -221,10 +215,12 @@ jobs:
               # Get manifest hash before checkver to detect changes
               $hashBefore = (Get-FileHash $manifestPath).Hash
 
-              # Run checkver with the bucket prefix
-              # The bucket name is "local-bucket" as added in the previous step
-              # The -u flag enables auto-update of the manifest
-              $output = scoop checkver "local-bucket/$app" -u 2>&1 | Out-String
+              # Run checkver script directly (checkver is not a scoop command, it's a script)
+              # The script is located at bin\checkver.ps1 in the Scoop installation
+              # The -Update flag enables auto-update of the manifest
+              # The -Dir parameter specifies the bucket directory
+              $checkverScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkver.ps1"
+              $output = & $checkverScript -App $app -Dir $env:GITHUB_WORKSPACE -Update 2>&1 | Out-String
               $exitCode = $LASTEXITCODE
               Write-Output $output.Trim()
 
