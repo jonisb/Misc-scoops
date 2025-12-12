@@ -198,6 +198,8 @@ jobs:
 
           # Use the bucket directory from workspace
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
+          # Define the bucket name used in the "Add bucket to Scoop" step
+          $bucketName = "temp-local-bucket"
 
           $updatedApps = @()
           $skippedApps = @()
@@ -223,7 +225,6 @@ jobs:
 
               # Use scoop checkver command with the temporary bucket
               # The -u flag enables auto-update of the manifest
-              $bucketName = "temp-local-bucket"
               $output = scoop checkver "${bucketName}/$app" -u 2>&1 | Out-String
               $exitCode = $LASTEXITCODE
               Write-Output $output.Trim()
