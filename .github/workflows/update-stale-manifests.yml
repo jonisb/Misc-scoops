@@ -95,8 +95,8 @@ jobs:
               $hashBefore = (Get-FileHash $manifestPath).Hash
               
               # Run checkhashes and capture all output
-              # Note: Using 2>&1 | Out-String to merge stderr/stdout and convert to string for pattern matching
-              $output = & $checkhashesScript -App $app -Dir $bucketPath -Update 2>&1 | Out-String
+              # Note: Using *>&1 | Out-String to capture all streams (including Write-Host's information stream)
+              $output = & $checkhashesScript -App $app -Dir $bucketPath -Update *>&1 | Out-String
               $lastExitCode = $LASTEXITCODE
               
               # Get manifest hash after running checkhashes
@@ -133,7 +133,7 @@ jobs:
               Write-Output $output.Trim()
 
               # Add note if hashes were verified but unchanged
-              $hashVerifiedWithoutChanges = -not $manifestChanged -and ($exitCode -eq 0) -and -not $hasError
+              $hashVerifiedWithoutChanges = -not $manifestChanged -and $hasOkOutput -and -not $hasError
               if ($hashVerifiedWithoutChanges) {
                   $note = "Updated $(Get-Date -Format 'yyyy-MM-dd'): manifest refreshed; hashes unchanged"
                   try {

@@ -263,7 +263,7 @@ jobs:
               if (-not (Test-Path $checkhashesScript)) {
                 throw "checkhashes.ps1 script not found at: $checkhashesScript"
               }
-              $output = & $checkhashesScript -App $app -Dir $env:GITHUB_WORKSPACE -Update 2>&1 | Out-String
+              $output = & $checkhashesScript -App $app -Dir $env:GITHUB_WORKSPACE -Update *>&1 | Out-String
               $lastExitCode = $LASTEXITCODE
               Write-Output $output.Trim()
 
@@ -296,7 +296,7 @@ jobs:
               } else {
                   $exitCode = [int] $lastExitCode
               }
-              $hashVerifiedWithoutChanges = -not $manifestChanged -and ($exitCode -eq 0) -and -not $hasError
+              $hashVerifiedWithoutChanges = -not $manifestChanged -and $hasOkOutput -and -not $hasError
 
               if ($hashVerifiedWithoutChanges) {
                 $note = "Updated $(Get-Date -Format 'yyyy-MM-dd'): manifest refreshed; hashes unchanged"
