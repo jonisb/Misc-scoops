@@ -73,10 +73,14 @@ jobs:
 
           $bucketPath = $env:GITHUB_WORKSPACE
           $checkhashesScript = "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkhashes.ps1"
+          $jsonDepth = 20
 
           if (-not (Test-Path $checkhashesScript)) {
               throw "checkhashes script not found at $checkhashesScript"
           }
+
+          # Change to repository root directory for checkhashes to work
+          Set-Location $env:GITHUB_WORKSPACE
 
           foreach ($app in $apps) {
               Write-Output "`n=========================================="
@@ -127,6 +131,37 @@ jobs:
               Write-Output "checkhashes exit code: $exitCode"
               Write-Output "Manifest changed: $manifestChanged"
               Write-Output $output.Trim()
+
+              # Add note if hashes were verified but unchanged
+              $hashVerifiedWithoutChanges = -not $manifestChanged -and $hasOkOutput -and -not $hasError
+              if ($hashVerifiedWithoutChanges) {
+                  $note = "Updated $(Get-Date -Format 'yyyy-MM-dd'): manifest refreshed; hashes unchanged"
+                  try {
+                      $manifestJson = Get-Content -Path $manifestPath -Raw | ConvertFrom-Json
+                      $combinedNotes = @()
+                      if ($manifestJson.PSObject.Properties.Name -contains "freshness_notes") {
+                          $existingNote = $manifestJson.freshness_notes
+                          if ($existingNote -is [array]) {
+                              foreach ($noteEntry in $existingNote) {
+                                  if (-not [string]::IsNullOrWhiteSpace([string]$noteEntry)) {
+                                      $combinedNotes += [string]$noteEntry
+                                  }
+                              }
+                          } else {
+                              if (-not [string]::IsNullOrWhiteSpace([string]$existingNote)) {
+                                  $combinedNotes += [string]$existingNote
+                              }
+                          }
+                      }
+                      $combinedNotes += $note
+                      $manifestJson.freshness_notes = $combinedNotes
+                      $manifestJson | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $manifestPath -Encoding utf8
+                      $manifestChanged = $true
+                      Write-Output "Added note to manifest: hashes verified but unchanged"
+                  } catch {
+                      Write-Warning "Unable to add hash-unchanged note for ${app}: $_"
+                  }
+              }
 
               if ($exitCode -gt 0) {
                   throw "checkhashes failed for $app (exit code $exitCode)"
