@@ -277,33 +277,33 @@ jobs:
           }
 
           # Write results to job summary
-          "## Update Stale Manifests Results`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
-          "**Generated:** $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') UTC`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+          "## Update Stale Manifests Results`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          "**Generated:** $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') UTC`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
           if ($updatedApps.Count -gt 0) {
-            "### ✅ Successfully Processed Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+            "### ✅ Successfully Processed Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             foreach ($app in $updatedApps) {
-              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             }
-            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
 
           if ($skippedApps.Count -gt 0) {
-            "### ⚠️ Skipped Apps (checkhashes returned without clear status)`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+            "### ⚠️ Skipped Apps (checkhashes returned without clear status)`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             foreach ($app in $skippedApps) {
-              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             }
-            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
 
           if ($failedApps.Count -gt 0) {
-            "### ❌ Failed Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+            "### ❌ Failed Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             foreach ($app in $failedApps) {
-              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             }
-            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8NoBOM
+            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             # Output failed apps for later step to fail the job after commit
-            "failed_apps=$($failedApps -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8NoBOM
+            "failed_apps=$($failedApps -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
 
       - name: Commit and push changes
