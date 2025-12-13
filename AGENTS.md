@@ -80,6 +80,10 @@ Lints GitHub Actions workflow files using actionlint.
 - Ensure YAML syntax is valid
 - Test workflow logic changes carefully
 - Workflows are linted with actionlint on PR
+- **Important**: PowerShell scripts (`.ps1` files) called with `&` do NOT reliably set `$LASTEXITCODE`
+  - Always check if `$LASTEXITCODE` is null before using it
+  - Use output analysis and other indicators (file changes, output patterns) to determine success/failure
+  - Native executables (like `scoop`, `git`) DO reliably set `$LASTEXITCODE`
 
 ## License
 
