@@ -19,8 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Excavate
-        # Using @main to ensure compatibility with latest Scoop changes
-        uses: ScoopInstaller/GithubActions@main
+        # Pinned to commit from 2025-11-25 for reproducibility
+        uses: ScoopInstaller/GithubActions@797d33021c0fbd52be705ce8136d9d62c5b41782
         env:
           USER_EMAIL: github.com@JsBComputing.se
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
