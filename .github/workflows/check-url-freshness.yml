@@ -82,8 +82,7 @@ jobs:
                   echo "    Warning: Connection failed (curl exit code: $curl_exit_code)"
                   FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (Connection failed, curl exit code: $curl_exit_code)")
                 else
-                  echo "    Warning: No Last-Modified header found"
-                  FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (No Last-Modified header)")
+                  echo "    Note: No Last-Modified header found, skipping freshness check"
                 fi
                 continue
               fi
