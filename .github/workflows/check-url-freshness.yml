@@ -296,7 +296,7 @@ jobs:
               } else {
                   $exitCode = [int] $lastExitCode
               }
-              $hashVerifiedWithoutChanges = -not $manifestChanged -and $hasOkOutput -and -not $hasError
+              $hashVerifiedWithoutChanges = -not $manifestChanged -and ($exitCode -eq 0) -and -not $hasError
 
               if ($hashVerifiedWithoutChanges) {
                 $note = "Updated $(Get-Date -Format 'yyyy-MM-dd'): manifest refreshed; hashes unchanged"
