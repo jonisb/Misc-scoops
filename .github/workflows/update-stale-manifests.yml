@@ -73,7 +73,7 @@ jobs:
               $output = & $checkhashesScript -App $app -Dir $bucketPath -Update *>&1
               $lastExitCode = $LASTEXITCODE
               if ($null -eq $lastExitCode) {
-                  if ($output -notmatch [regex]::Escape("$app:")) {
+                  if ($output -notmatch [regex]::Escape("${app}:")) {
                       throw "checkhashes returned no exit code or status for $app"
                   }
                   Write-Warning "checkhashes returned no exit code; treating as success (verify logs)"
