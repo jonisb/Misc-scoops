@@ -46,11 +46,17 @@ jobs:
           }
 
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE 'bucket'
+          $checkhashesScript = "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkhashes.ps1"
+
+          if (-not (Test-Path $checkhashesScript)) {
+              throw "checkhashes script not found at $checkhashesScript"
+          }
+
           foreach ($app in $apps) {
               Write-Output "`n=========================================="
               Write-Output "Updating: $app"
               Write-Output "=========================================="
-              $output = & "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkhashes.ps1" -App $app -Dir $bucketPath -ForceUpdate *>&1
+              $output = & $checkhashesScript -App $app -Dir $bucketPath -ForceUpdate *>&1
               $exitCode = if ($LASTEXITCODE -ne $null) { $LASTEXITCODE } else { 0 }
               $output | ForEach-Object { Write-Output $_ }
 
