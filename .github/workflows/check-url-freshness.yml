@@ -318,12 +318,8 @@ jobs:
                     }
                   }
                   $combinedNotes += $note
-                  # Use Add-Member to properly add/update the property
-                  if ($manifestJson.PSObject.Properties.Name -contains "notes") {
-                      $manifestJson.notes = $combinedNotes
-                  } else {
-                      $manifestJson | Add-Member -MemberType NoteProperty -Name "notes" -Value $combinedNotes -Force
-                  }
+                  # Add or update the notes property (Force flag updates existing properties)
+                  $manifestJson | Add-Member -MemberType NoteProperty -Name "notes" -Value $combinedNotes -Force
                   $manifestJson | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $manifestPath -Encoding utf8
                   $manifestChanged = $true
                   Write-Output "[OK] $app manifest refreshed with hash-unchanged note"
