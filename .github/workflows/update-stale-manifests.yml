@@ -26,10 +26,10 @@ jobs:
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
           $installerUrl = 'https://raw.githubusercontent.com/ScoopInstaller/Install/ff4eedda58d832b8225d7697510f097ebe8ab071/install.ps1'
           $expectedHash = 'ef65c5a3d9f224d7c69a0e5d43008291f677e60c2f7898b132edbca4aaff021c'
-          # Update expectedHash if the installer script is revised.
+          # Hash verified on 2025-12-13. Update expectedHash if the installer script is revised.
           $scoopInstaller = Join-Path $env:TEMP 'install-scoop.ps1'
 
-          irm -Uri $installerUrl -OutFile $scoopInstaller -TimeoutSec 120 -ErrorAction Stop
+          irm -Uri $installerUrl -OutFile $scoopInstaller -TimeoutSec 60 -ErrorAction Stop
           $installerHash = (Get-FileHash $scoopInstaller -Algorithm SHA256).Hash.ToLower()
           if ($installerHash -ne $expectedHash) {
               throw "Unexpected installer hash: $installerHash"
@@ -51,7 +51,7 @@ jobs:
         shell: powershell
         run: |
           $apps = "${{ github.event.inputs.apps }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
-          if ($apps | Where-Object { $_ -notmatch '^[\w.-]+$' }) {
+          if ($apps | Where-Object { $_ -notmatch '^[A-Za-z0-9][A-Za-z0-9.-]*$' }) {
               throw "Invalid app name provided."
           }
           if ($apps.Count -eq 0) {
@@ -73,7 +73,7 @@ jobs:
               $output = & $checkhashesScript -App $app -Dir $bucketPath -Update *>&1
               $lastExitCode = $LASTEXITCODE
               if ($null -eq $lastExitCode) {
-                  Write-Warning "checkhashes returned no exit code; assuming success"
+                  Write-Warning "checkhashes returned no exit code; treating as success (verify logs)"
                   $exitCode = 0
               } else {
                   $exitCode = [int] $lastExitCode
