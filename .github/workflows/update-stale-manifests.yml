@@ -73,6 +73,7 @@ jobs:
 
           $bucketPath = $env:GITHUB_WORKSPACE
           $checkhashesScript = "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkhashes.ps1"
+          $jsonDepth = 20
 
           if (-not (Test-Path $checkhashesScript)) {
               throw "checkhashes script not found at $checkhashesScript"
@@ -154,7 +155,6 @@ jobs:
                       }
                       $combinedNotes += $note
                       $manifestJson.freshness_notes = $combinedNotes
-                      $jsonDepth = 20
                       $manifestJson | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $manifestPath -Encoding utf8
                       $manifestChanged = $true
                       Write-Output "Added note to manifest: hashes verified but unchanged"
