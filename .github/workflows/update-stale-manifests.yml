@@ -142,7 +142,7 @@ jobs:
           $apps = "${{ github.event.inputs.apps }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
           $commitMessage = "Refresh stale manifest(s)"
           if ($apps.Count -gt 0) {
-              $commitMessage = "$commitMessage: $($apps -join ', ')"
+              $commitMessage = "${commitMessage}: $($apps -join ', ')"
           }
           $commitMessage = "$commitMessage [skip ci]"
 
