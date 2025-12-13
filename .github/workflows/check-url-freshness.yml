@@ -210,6 +210,7 @@ jobs:
 
           # Get bucket path for manifest validation
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
+          $jsonDepth = 20
 
           $updatedApps = @()
           $skippedApps = @()
@@ -254,9 +255,43 @@ jobs:
               # Match patterns indicating hash verification or errors
               $hasOkOutput = $output -match "(?i)\bOK\b"
               $hasError = $output -match "(?i)(error|exception|could not|failed|unable to|timeout)"
+              $hashVerifiedWithoutChanges = -not $manifestChanged -and $hasOkOutput -and -not $hasError
+
+              if ($hashVerifiedWithoutChanges) {
+                $note = "Updated $(Get-Date -Format 'yyyy-MM-dd'): manifest refreshed; hashes unchanged"
+                try {
+                  $manifestJson = Get-Content -Path $manifestPath -Raw | ConvertFrom-Json
+                  $combinedNotes = @()
+                  if ($manifestJson.PSObject.Properties.Name -contains "freshness_notes") {
+                    $existingNote = $manifestJson.freshness_notes
+                    if ($existingNote -is [array]) {
+                      foreach ($noteEntry in $existingNote) {
+                        if (-not [string]::IsNullOrWhiteSpace([string]$noteEntry)) {
+                          $combinedNotes += [string]$noteEntry
+                        }
+                      }
+                    } else {
+                      if (-not [string]::IsNullOrWhiteSpace([string]$existingNote)) {
+                        $combinedNotes += [string]$existingNote
+                      }
+                    }
+                  }
+                  $combinedNotes += $note
+                  $manifestJson.freshness_notes = $combinedNotes
+                  $manifestJson | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $manifestPath -Encoding utf8
+                  $manifestChanged = $true
+                  Write-Output "[OK] $app manifest refreshed with hash-unchanged note"
+                } catch {
+                  Write-Output "[WARN] Unable to add hash-unchanged note for $app : $_"
+                }
+              }
 
               if ($manifestChanged) {
-                Write-Output "[OK] $app manifest hashes were updated"
+                if ($hashVerifiedWithoutChanges) {
+                  Write-Output "[OK] $app manifest updated (hashes unchanged)"
+                } else {
+                  Write-Output "[OK] $app manifest hashes were updated"
+                }
                 $updatedApps += $app
               } elseif ($hasOkOutput -and -not $hasError) {
                 # checkhashes successfully verified hashes
