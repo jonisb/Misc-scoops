@@ -153,9 +153,9 @@ Based on past fixes (PR #50 and others):
 
 4. **Exit Code Checking**: Always check `$LASTEXITCODE` correctly
    - ✅ Correct: `if ($LASTEXITCODE -ne 0) { ... }`
-   - Check for null when calling external scripts: `if ($null -eq $LASTEXITCODE) { ... }`
-   - Note: `$LASTEXITCODE` is typically 0 (success) or non-zero (failure), but calling PowerShell scripts with `&` may not always set it
-   - Example: `$output = & $script -Param Value *>&1` followed by `if ($null -eq $LASTEXITCODE) { ... }`
+   - Native executables set `$LASTEXITCODE`; PowerShell scripts called with `&` may not
+   - Always check for null after calling external scripts: `if ($null -eq $LASTEXITCODE) { ... }`
+   - Example from update-stale-manifests.yml: `$output = & $checkhashesScript -App $app -Dir $path -Update *>&1` then check if `$LASTEXITCODE` is null
 
 5. **Git Commands in Bash**: Always use `set -euo pipefail` at script start for proper error handling
 
