@@ -163,10 +163,34 @@ Based on past fixes (PR #50 and others):
 
 ### Scoop Installation in Workflows
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-iex "& {$(irm get.scoop.sh)}"
-echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+$installerUrl = 'https://raw.githubusercontent.com/ScoopInstaller/Install/ff4eedda58d832b8225d7697510f097ebe8ab071/install.ps1'
+$expectedHash = 'ef65c5a3d9f224d7c69a0e5d43008291f677e60c2f7898b132edbca4aaff021c'
+# Hash verified on 2025-12-13. Update expectedHash if the installer script is revised.
+$scoopInstaller = Join-Path $env:TEMP 'install-scoop.ps1'
+
+irm -Uri $installerUrl -OutFile $scoopInstaller -TimeoutSec 60 -ErrorAction Stop
+$installerHash = (Get-FileHash $scoopInstaller -Algorithm SHA256).Hash.ToLower()
+if ($installerHash -ne $expectedHash) {
+    throw "Unexpected installer hash: $installerHash"
+}
+
+& $scoopInstaller
+"$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+# Create cache directory if it doesn't exist (required for some workflows)
+$cachePath = Join-Path $env:USERPROFILE "scoop\cache"
+if (-not (Test-Path $cachePath)) {
+  New-Item -ItemType Directory -Path $cachePath -Force | Out-Null
+  Write-Output "Created Scoop cache directory at: $cachePath"
+}
 ```
+
+**Notes:**
+- Uses `Process` scope instead of `CurrentUser` for better isolation
+- Downloads and verifies installer script with SHA256 hash before execution
+- Creates cache directory to prevent errors when Scoop downloads files
+- Update the `expectedHash` when the Scoop installer is updated
 
 ### Testing Manifests Locally
 ```powershell
@@ -306,7 +330,8 @@ scoop uninstall app
 
 ### Performance
 - Use `fetch-depth: 0` only when full git history is needed
-- Cache Scoop installation directory where applicable
+- Ensure Scoop cache directory exists to prevent download errors (see "Scoop Installation in Workflows")
+- Cache actionlint and other tools when possible to reduce download time
 - Use Ubuntu runners for non-Scoop operations (faster/cheaper)
 
 ## Repository Structure Reference

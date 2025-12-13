@@ -5,10 +5,18 @@ on:
     - cron: '0 6 * * *' # Run daily at 6 AM UTC
   workflow_dispatch: # Allow manual triggering
 
+permissions:
+  contents: write
+
+concurrency:
+  group: update-manifests
+  cancel-in-progress: false
+
 jobs:
   check-url-freshness:
     name: Check URL Freshness
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     outputs:
@@ -177,6 +185,7 @@ jobs:
     needs: check-url-freshness
     if: needs.check-url-freshness.outputs.has_updates == 'true'
     runs-on: windows-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -186,9 +195,21 @@ jobs:
       - name: Install Scoop
         shell: powershell
         run: |
-          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-          iex "& {$(irm get.scoop.sh)}"
-          echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+          $installerUrl = 'https://raw.githubusercontent.com/ScoopInstaller/Install/ff4eedda58d832b8225d7697510f097ebe8ab071/install.ps1'
+          $expectedHash = 'ef65c5a3d9f224d7c69a0e5d43008291f677e60c2f7898b132edbca4aaff021c'
+          # Hash verified on 2025-12-13. Update expectedHash if the installer script is revised.
+          $scoopInstaller = Join-Path $env:TEMP 'install-scoop.ps1'
+
+          irm -Uri $installerUrl -OutFile $scoopInstaller -TimeoutSec 60 -ErrorAction Stop
+          $installerHash = (Get-FileHash $scoopInstaller -Algorithm SHA256).Hash.ToLower()
+          if ($installerHash -ne $expectedHash) {
+              throw "Unexpected installer hash: $installerHash"
+          }
+
+          & $scoopInstaller
+          "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
           # Create cache directory if it doesn't exist
           $cachePath = Join-Path $env:USERPROFILE "scoop\cache"
           if (-not (Test-Path $cachePath)) {

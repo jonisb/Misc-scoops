@@ -11,9 +11,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: update-manifests
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,6 +105,7 @@ jobs:
           if ($apps.Count -gt 0) {
               $commitMessage = "$commitMessage: $($apps -join ', ')"
           }
+          $commitMessage = "$commitMessage [skip ci]"
 
           $changes = git status --porcelain
           if (-not [string]::IsNullOrWhiteSpace($changes)) {
