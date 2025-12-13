@@ -26,9 +26,10 @@ jobs:
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
           $installerUrl = 'https://raw.githubusercontent.com/ScoopInstaller/Install/master/install.ps1'
           $expectedHash = 'ef65c5a3d9f224d7c69a0e5d43008291f677e60c2f7898b132edbca4aaff021c'
+          # Update expectedHash if the installer script is revised.
           $scoopInstaller = Join-Path $env:TEMP 'install-scoop.ps1'
 
-          irm $installerUrl -OutFile $scoopInstaller
+          irm -Uri $installerUrl -OutFile $scoopInstaller -TimeoutSec 120 -ErrorAction Stop
           $installerHash = (Get-FileHash $scoopInstaller -Algorithm SHA256).Hash.ToLower()
           if ($installerHash -ne $expectedHash) {
               throw "Unexpected installer hash: $installerHash"
@@ -69,7 +70,7 @@ jobs:
               $output = & $checkhashesScript -App $app -Dir $bucketPath -Update *>&1
               $lastExitCode = $LASTEXITCODE
               if ($null -eq $lastExitCode) {
-                  Write-Output "checkhashes returned no exit code; assuming success"
+                  Write-Warning "checkhashes returned no exit code; assuming success"
                   $exitCode = 0
               } else {
                   $exitCode = [int] $lastExitCode
