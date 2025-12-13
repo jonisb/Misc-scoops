@@ -51,7 +51,7 @@ jobs:
         shell: powershell
         run: |
           $apps = "${{ github.event.inputs.apps }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
-          if ($apps | Where-Object { $_ -notmatch '^[\\w.-]+$' }) {
+          if ($apps | Where-Object { $_ -notmatch '^[\w.-]+$' }) {
               throw "Invalid app name provided."
           }
           if ($apps.Count -eq 0) {
