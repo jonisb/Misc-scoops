@@ -45,7 +45,7 @@ jobs:
               exit 0
           }
 
-          $bucketPath = Join-Path $env:GITHUB_WORKSPACE 'bucket'
+          $bucketPath = $env:GITHUB_WORKSPACE
           $checkhashesScript = "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkhashes.ps1"
 
           if (-not (Test-Path $checkhashesScript)) {
@@ -56,12 +56,13 @@ jobs:
               Write-Output "`n=========================================="
               Write-Output "Updating: $app"
               Write-Output "=========================================="
-              $output = & $checkhashesScript -App $app -Dir $bucketPath -ForceUpdate *>&1
-              if ($null -eq $LASTEXITCODE) {
+              $output = & $checkhashesScript -App $app -Dir $bucketPath -Update *>&1
+              $lastExitCode = $LASTEXITCODE
+              if ($null -eq $lastExitCode) {
                   Write-Output "checkhashes returned no exit code; assuming success"
                   $exitCode = 0
               } else {
-                  $exitCode = [int] $LASTEXITCODE
+                  $exitCode = [int] $lastExitCode
               }
               $output | ForEach-Object { Write-Output $_ }
 
