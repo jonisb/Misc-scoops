@@ -153,8 +153,9 @@ Based on past fixes (PR #50 and others):
 
 4. **Exit Code Checking**: Always check `$LASTEXITCODE` correctly
    - ✅ Correct: `if ($LASTEXITCODE -ne 0) { ... }`
-   - Check for null when calling external scripts that may not set it: `if ($null -eq $LASTEXITCODE) { ... }`
-   - Note: `$LASTEXITCODE` is typically 0 (success) or non-zero (failure), but some script invocations may not set it at all
+   - Check for null when calling external scripts: `if ($null -eq $LASTEXITCODE) { ... }`
+   - Note: `$LASTEXITCODE` is typically 0 (success) or non-zero (failure), but calling PowerShell scripts with `&` may not always set it
+   - Example: `$output = & $script -Param Value *>&1` followed by `if ($null -eq $LASTEXITCODE) { ... }`
 
 5. **Git Commands in Bash**: Always use `set -euo pipefail` at script start for proper error handling
 
@@ -277,7 +278,7 @@ scoop uninstall app
 ### PowerShell String Interpolation
 - Use double quotes for variable expansion: `"$var"`
 - Avoid unintended expansion in single quotes: `'$var'`
-- **CRITICAL**: When a variable is followed by a colon `:`, use braces: `"${var}:"` not `"$var:"` (see "Common Workflow Mistakes" section for details)
+- **CRITICAL**: When a variable is followed by a colon `:`, use braces: `"${var}:"` not `"$var:"` (prevents provider/drive access errors)
 - Escape special characters in regex patterns
 - Use `$()` for expressions: `"Result: $(Get-Date)"`
 
