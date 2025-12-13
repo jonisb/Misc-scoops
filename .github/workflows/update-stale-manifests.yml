@@ -24,8 +24,16 @@ jobs:
         shell: powershell
         run: |
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          $installerUrl = 'https://raw.githubusercontent.com/ScoopInstaller/Install/master/install.ps1'
+          $expectedHash = 'ef65c5a3d9f224d7c69a0e5d43008291f677e60c2f7898b132edbca4aaff021c'
           $scoopInstaller = Join-Path $env:TEMP 'install-scoop.ps1'
-          irm https://get.scoop.sh -OutFile $scoopInstaller
+
+          irm $installerUrl -OutFile $scoopInstaller
+          $installerHash = (Get-FileHash $scoopInstaller -Algorithm SHA256).Hash.ToLower()
+          if ($installerHash -ne $expectedHash) {
+              throw "Unexpected installer hash: $installerHash"
+          }
+
           & $scoopInstaller
           "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
@@ -66,6 +74,7 @@ jobs:
               } else {
                   $exitCode = [int] $lastExitCode
               }
+              Write-Output "checkhashes exit code: $exitCode"
               $output | ForEach-Object { Write-Output $_ }
 
               if ($exitCode -gt 0) {
@@ -87,7 +96,7 @@ jobs:
 
           $changes = git status --porcelain
           if (-not [string]::IsNullOrWhiteSpace($changes)) {
-              git add bucket
+              git add .
               git commit -m "$commitMessage"
               git push
           } else {
