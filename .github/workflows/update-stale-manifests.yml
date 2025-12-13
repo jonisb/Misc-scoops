@@ -78,6 +78,9 @@ jobs:
               throw "checkhashes script not found at $checkhashesScript"
           }
 
+          # Change to repository root directory for checkhashes to work
+          Set-Location $env:GITHUB_WORKSPACE
+
           foreach ($app in $apps) {
               Write-Output "`n=========================================="
               Write-Output "Updating: $app"
