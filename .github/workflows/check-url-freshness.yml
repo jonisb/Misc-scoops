@@ -264,18 +264,38 @@ jobs:
                 throw "checkhashes.ps1 script not found at: $checkhashesScript"
               }
               $output = & $checkhashesScript -App $app -Dir $env:GITHUB_WORKSPACE -Update 2>&1 | Out-String
-              $exitCode = $LASTEXITCODE
+              $lastExitCode = $LASTEXITCODE
               Write-Output $output.Trim()
 
               # Get manifest hash after checkhashes to detect changes
               $hashAfter = (Get-FileHash $manifestPath).Hash
               $manifestChanged = $hashBefore -ne $hashAfter
 
-              # checkhashes returns non-zero when there are hash mismatches
-              # We should only treat it as a failure if the output indicates an error
               # Match patterns indicating hash verification or errors
               $hasOkOutput = $output -match "(?i)\bOK\b"
               $hasError = $output -match "(?i)(error|exception|could not|failed|unable to|timeout)"
+              
+              # PowerShell scripts called with & may not set LASTEXITCODE
+              # Determine exit code based on output analysis and manifest changes
+              if ($null -eq $lastExitCode) {
+                  # PowerShell script didn't set LASTEXITCODE (common with PowerShell scripts called via &)
+                  # Use output analysis and manifest changes to determine success/failure
+                  if ($hasError) {
+                      Write-Warning "checkhashes returned no exit code, but output indicates an error"
+                      $exitCode = 1
+                  } elseif ($manifestChanged -or $hasOkOutput) {
+                      Write-Output "checkhashes returned no exit code; manifest was updated or verified successfully"
+                      $exitCode = 0
+                  } else {
+                      # No clear error, no manifest changes, no explicit OK
+                      # This typically means the script ran but found nothing to do (e.g., manifest already up to date)
+                      # Since we use -Update flag, lack of changes with no errors indicates success
+                      Write-Warning "checkhashes returned no exit code and no clear status; treating as success (verify logs)"
+                      $exitCode = 0
+                  }
+              } else {
+                  $exitCode = [int] $lastExitCode
+              }
               $hashVerifiedWithoutChanges = -not $manifestChanged -and $hasOkOutput -and -not $hasError
 
               if ($hashVerifiedWithoutChanges) {
@@ -307,7 +327,10 @@ jobs:
                 }
               }
 
-              if ($manifestChanged) {
+              if ($exitCode -gt 0 -and $hasError) {
+                Write-Output "[FAIL] $app encountered an error during hash check"
+                $failedApps += $app
+              } elseif ($manifestChanged) {
                 if ($hashVerifiedWithoutChanges) {
                   Write-Output "[OK] $app manifest updated (hashes unchanged)"
                 } else {
@@ -318,12 +341,9 @@ jobs:
                 # checkhashes successfully verified hashes
                 Write-Output "[OK] $app hashes are correct"
                 $updatedApps += $app
-              } elseif ($hasError) {
-                Write-Output "[FAIL] $app encountered an error during hash check"
-                $failedApps += $app
               } else {
-                # Exit code non-zero and no clear status - track as skipped
-                Write-Output "[SKIP] ${app}: checkhashes returned exit code $exitCode without clear status"
+                # No clear success or error pattern - track as skipped
+                Write-Output "[SKIP] ${app}: checkhashes completed without clear success/error indication"
                 $skippedApps += $app
               }
             } catch {

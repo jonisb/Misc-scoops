@@ -151,11 +151,27 @@ Based on past fixes (PR #50 and others):
 3. **String Splitting in PowerShell**: Use proper options to handle empty entries
    - ✅ Correct: `"${{ github.event.inputs.apps }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)`
 
-4. **Exit Code Checking**: Always check `$LASTEXITCODE` correctly
-   - ✅ Correct: `if ($LASTEXITCODE -ne 0) { ... }`
-   - Native executables set `$LASTEXITCODE`; PowerShell scripts called with `&` may not
-   - Always check for null after calling external scripts: `if ($null -eq $LASTEXITCODE) { ... }`
-   - Example from update-stale-manifests.yml: `$output = & $checkhashesScript -App $app -Dir $path -Update *>&1` then check if `$LASTEXITCODE` is null
+4. **Exit Code Checking**: PowerShell scripts do NOT reliably set `$LASTEXITCODE`
+   - ❌ Wrong: `if ($LASTEXITCODE -ne 0) { ... }` after calling a .ps1 script with `&`
+   - ✅ Correct: Native executables (like `scoop`, `git`) reliably set `$LASTEXITCODE`
+   - ✅ Correct: For PowerShell scripts called with `&`, always check for null: `if ($null -eq $LASTEXITCODE) { ... }`
+   - ✅ Correct: Use output analysis and other indicators (file changes, output patterns) to determine success/failure
+   - Example from update-stale-manifests.yml and check-url-freshness.yml:
+     ```powershell
+     $output = & $checkhashesScript -App $app -Dir $path -Update 2>&1 | Out-String
+     $lastExitCode = $LASTEXITCODE
+     
+     if ($null -eq $lastExitCode) {
+         # PowerShell script didn't set LASTEXITCODE - use output analysis
+         if ($output -match "error|exception|failed") {
+             $exitCode = 1
+         } else {
+             $exitCode = 0
+         }
+     } else {
+         $exitCode = [int] $lastExitCode
+     }
+     ```
 
 5. **Git Commands in Bash**: Always use `set -euo pipefail` at script start for proper error handling
 
