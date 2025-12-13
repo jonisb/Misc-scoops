@@ -21,14 +21,14 @@ jobs:
           fetch-depth: 0
 
       - name: Install Scoop
-        shell: pwsh
+        shell: powershell
         run: |
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
           iex "& {$(irm get.scoop.sh)}"
           "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Add bucket
-        shell: pwsh
+        shell: powershell
         run: |
           $bucketDir = "$env:USERPROFILE\scoop\buckets\misc-scoops"
           if (Test-Path $bucketDir) {
@@ -37,7 +37,7 @@ jobs:
           New-Item -ItemType Junction -Path $bucketDir -Target $env:GITHUB_WORKSPACE | Out-Null
 
       - name: Refresh hashes
-        shell: pwsh
+        shell: powershell
         run: |
           $apps = "${{ github.event.inputs.apps }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
           if ($apps.Count -eq 0) {
@@ -57,7 +57,12 @@ jobs:
               Write-Output "Updating: $app"
               Write-Output "=========================================="
               $output = & $checkhashesScript -App $app -Dir $bucketPath -ForceUpdate *>&1
-              $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int] $LASTEXITCODE }
+              if ($null -eq $LASTEXITCODE) {
+                  Write-Output "checkhashes returned no exit code; assuming success"
+                  $exitCode = 0
+              } else {
+                  $exitCode = [int] $LASTEXITCODE
+              }
               $output | ForEach-Object { Write-Output $_ }
 
               if ($exitCode -gt 0) {
@@ -66,15 +71,21 @@ jobs:
           }
 
       - name: Commit changes
-        shell: pwsh
+        shell: powershell
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          $apps = "${{ github.event.inputs.apps }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+          $commitMessage = "Refresh stale manifest(s)"
+          if ($apps.Count -gt 0) {
+              $commitMessage = "$commitMessage: $($apps -join ', ')"
+          }
+
           $changes = git status --porcelain bucket
           if (-not [string]::IsNullOrWhiteSpace($changes)) {
               git add bucket
-              git commit -m "Refresh stale manifest(s)"
+              git commit -m "$commitMessage"
               git push
           } else {
               Write-Output "No manifest updates produced."
