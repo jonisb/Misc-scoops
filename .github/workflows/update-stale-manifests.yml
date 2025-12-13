@@ -24,7 +24,9 @@ jobs:
         shell: powershell
         run: |
           Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-          iex "& {$(irm get.scoop.sh)}"
+          $scoopInstaller = Join-Path $env:TEMP 'install-scoop.ps1'
+          irm https://get.scoop.sh -OutFile $scoopInstaller
+          & $scoopInstaller
           "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Add bucket
@@ -83,7 +85,7 @@ jobs:
               $commitMessage = "$commitMessage: $($apps -join ', ')"
           }
 
-          $changes = git status --porcelain bucket
+          $changes = git status --porcelain
           if (-not [string]::IsNullOrWhiteSpace($changes)) {
               git add bucket
               git commit -m "$commitMessage"
