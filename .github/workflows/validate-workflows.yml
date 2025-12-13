@@ -18,6 +18,7 @@ jobs:
   validate:
     name: Validate Workflows
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
