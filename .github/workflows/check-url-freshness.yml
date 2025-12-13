@@ -40,6 +40,7 @@ jobs:
           # Use arrays for safe string accumulation
           declare -a UPDATED_ITEMS=()
           declare -a FAILED_ITEMS=()
+          declare -a WARNING_ITEMS=()
           declare -a STALE_APPS=()
 
           # Process each manifest file using nullglob to handle no matches gracefully
@@ -82,8 +83,8 @@ jobs:
                   echo "    Warning: Connection failed (curl exit code: $curl_exit_code)"
                   FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (Connection failed, curl exit code: $curl_exit_code)")
                 else
-                  echo "    Warning: No Last-Modified header found"
-                  FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (No Last-Modified header)")
+                  echo "    Note: No Last-Modified header found, skipping freshness check"
+                  WARNING_ITEMS+=("- **${app_name}**: \`${clean_url}\` (No Last-Modified header)")
                 fi
                 continue
               fi
@@ -144,6 +145,17 @@ jobs:
             } >> "$REPORT_FILE"
             echo "has_updates=false" >> "$GITHUB_OUTPUT"
             echo "stale_apps=" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ ${#WARNING_ITEMS[@]} -gt 0 ]; then
+            {
+              echo "## ⚠️ URLs With Warnings (Non-blocking)"
+              echo ""
+              echo "The following URLs could not be checked but this is not considered an error:"
+              echo ""
+              printf '%s\n' "${WARNING_ITEMS[@]}"
+              echo ""
+            } >> "$REPORT_FILE"
           fi
 
           if [ ${#FAILED_ITEMS[@]} -gt 0 ]; then
