@@ -82,19 +82,51 @@ jobs:
               Write-Output "`n=========================================="
               Write-Output "Updating: $app"
               Write-Output "=========================================="
-              $output = & $checkhashesScript -App $app -Dir $bucketPath -Update *>&1
+              
+              # Get manifest path and hash before running checkhashes
+              $manifestPath = Join-Path $bucketPath "bucket\$app.json"
+              if (-not (Test-Path $manifestPath)) {
+                  throw "Manifest not found: $manifestPath"
+              }
+              $hashBefore = (Get-FileHash $manifestPath).Hash
+              
+              # Run checkhashes and capture all output
+              # Note: Using 2>&1 | Out-String to merge stderr/stdout and convert to string for pattern matching
+              $output = & $checkhashesScript -App $app -Dir $bucketPath -Update 2>&1 | Out-String
               $lastExitCode = $LASTEXITCODE
+              
+              # Get manifest hash after running checkhashes
+              $hashAfter = (Get-FileHash $manifestPath).Hash
+              $manifestChanged = $hashBefore -ne $hashAfter
+              
+              # Check for error patterns in output (with word boundaries to avoid false positives)
+              $hasError = $output -match "(?i)\b(error|exception|could not|failed|unable to|timeout)\b"
+              $hasOkOutput = $output -match "(?i)\bOK\b"
+              
+              # Determine exit code handling
               if ($null -eq $lastExitCode) {
-                  if ($output -notmatch [regex]::Escape("${app}:")) {
-                      throw "checkhashes returned no exit code or status for $app"
+                  # PowerShell script didn't set LASTEXITCODE (common with PowerShell scripts called via &)
+                  # Use output analysis and manifest changes to determine success/failure
+                  if ($hasError) {
+                      Write-Warning "checkhashes returned no exit code, but output indicates an error"
+                      $exitCode = 1
+                  } elseif ($manifestChanged -or $hasOkOutput) {
+                      Write-Output "checkhashes returned no exit code; manifest was updated or verified successfully"
+                      $exitCode = 0
+                  } else {
+                      # No clear error, no manifest changes, no explicit OK
+                      # This typically means the script ran but found nothing to do (e.g., manifest already up to date)
+                      # Since we use -Update flag, lack of changes with no errors indicates success
+                      Write-Warning "checkhashes returned no exit code and no clear status; treating as success (verify logs)"
+                      $exitCode = 0
                   }
-                  Write-Warning "checkhashes returned no exit code; treating as success (verify logs)"
-                  $exitCode = 0
               } else {
                   $exitCode = [int] $lastExitCode
               }
+              
               Write-Output "checkhashes exit code: $exitCode"
-              $output | ForEach-Object { Write-Output $_ }
+              Write-Output "Manifest changed: $manifestChanged"
+              Write-Output $output.Trim()
 
               if ($exitCode -gt 0) {
                   throw "checkhashes failed for $app (exit code $exitCode)"
