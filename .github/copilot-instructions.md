@@ -292,7 +292,7 @@ Misc-scoops/
 │   └── *.json                # App manifests
 ├── .github/
 │   ├── workflows/            # CI/CD automation
-│   │   ├── schedule.yml      # Excavator auto-updates
+│   │   ├── schedule.yml               # Excavator auto-updates
 │   │   ├── test-manifests.yml         # Validation & testing
 │   │   ├── validate-workflows.yml     # Workflow linting
 │   │   ├── check-url-freshness.yml    # URL staleness detection
