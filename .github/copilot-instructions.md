@@ -135,6 +135,27 @@ For custom version checking:
 - Commits changes with `[skip ci]` to avoid triggering tests
 - Adds `freshness_notes` field to track refreshes
 
+### Common Workflow Mistakes to Avoid
+
+Based on past fixes (PR #50 and others):
+
+1. **PowerShell Variable + Colon Issue**: When a PowerShell variable is followed by a colon, always use braces
+   - ❌ Wrong: `"$app: status"` (PowerShell tries to access `app:` drive)
+   - ✅ Correct: `"${app}: status"` or in regex: `[regex]::Escape("${app}:")`
+
+2. **GitHub Actions Expressions**: Use proper syntax for accessing workflow inputs/outputs
+   - ✅ Correct: `${{ github.event.inputs.apps }}`
+   - ✅ Correct: `${{ needs.job-name.outputs.variable }}`
+
+3. **String Splitting in PowerShell**: Use proper options to handle empty entries
+   - ✅ Correct: `"${{ github.event.inputs.apps }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)`
+
+4. **Exit Code Checking**: Always check `$LASTEXITCODE` correctly
+   - ✅ Correct: `if ($LASTEXITCODE -ne 0) { ... }`
+   - Check for null: `if ($null -eq $LASTEXITCODE) { ... }`
+
+5. **Git Commands in Bash**: Always use `set -euo pipefail` at script start for proper error handling
+
 ## PowerShell Script Conventions
 
 ### Scoop Installation in Workflows
@@ -254,7 +275,10 @@ scoop uninstall app
 ### PowerShell String Interpolation
 - Use double quotes for variable expansion: `"$var"`
 - Avoid unintended expansion in single quotes: `'$var'`
+- **CRITICAL**: When a variable is followed by a colon `:`, use braces: `"${var}:"` not `"$var:"` (the latter tries to access a PowerShell drive)
+- Example of correct usage: `"${app}: checking status"` or `[regex]::Escape("${app}:")`
 - Escape special characters in regex patterns
+- Use `$()` for expressions: `"Result: $(Get-Date)"`
 
 ### Git Commit Messages
 - Use `[skip ci]` suffix to avoid triggering unnecessary workflow runs
