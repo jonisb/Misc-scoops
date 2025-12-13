@@ -71,21 +71,44 @@ jobs:
 
               echo "  Checking URL: $clean_url"
 
-              # Get Last-Modified header using HEAD request with user agent and limited redirects
+              # Get headers using HEAD request with user agent and limited redirects
               # Capture curl output and exit code, handling failures gracefully with set -e
               curl_exit_code=0
               response=$(curl -sI -L --max-redirs 5 --max-time 30 -A "$USER_AGENT" "$clean_url" 2>/dev/null) || curl_exit_code=$?
               last_modified=$(echo "$response" | grep -i "^last-modified:" | tail -1 | sed 's/^[Ll]ast-[Mm]odified: *//' | tr -d '\r' || true)
 
+              # Handle cases where Last-Modified header is missing
+              # Note: ETag cannot be directly compared to timestamps, so we skip with notes
               if [ -z "$last_modified" ]; then
                 if [ "$curl_exit_code" -ne 0 ]; then
                   echo "    Warning: Connection failed (curl exit code: $curl_exit_code)"
                   FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (Connection failed, curl exit code: $curl_exit_code)")
-                else
-                  echo "    Note: No Last-Modified header found, skipping freshness check"
-                  echo "    (URL will still be checked for hash updates by Excavator)"
+                  continue
                 fi
-                continue
+                
+                # Check if this is a SourceForge URL or has ETag header as alternative
+                etag=$(echo "$response" | grep -i "^etag:" | tail -1 | sed 's/^[Ee][Tt]ag: *//' | tr -d '\r' || true)
+                
+                if [[ "$clean_url" == *"sourceforge.net"* ]]; then
+                  # SourceForge URLs may not reliably provide Last-Modified header
+                  # Skip freshness check but note it for manual review
+                  echo "    Note: SourceForge URL - Last-Modified header not available, skipping freshness check"
+                  echo "    (SourceForge URLs are checked by Excavator auto-update)"
+                  # Don't add to FAILED_ITEMS as this is expected behavior
+                  continue
+                elif [ -n "$etag" ]; then
+                  # ETag is available but cannot be directly compared to timestamps
+                  # ETags are opaque identifiers and don't contain temporal information
+                  # We would need to store previous ETag values to detect changes
+                  echo "    Note: No Last-Modified header, but ETag present: $etag"
+                  echo "    (Cannot determine freshness - ETag requires state comparison)"
+                  # Don't add to FAILED_ITEMS as the URL is accessible
+                  continue
+                else
+                  echo "    Warning: No Last-Modified or ETag header found"
+                  FAILED_ITEMS+=("- **${app_name}**: \`${clean_url}\` (No Last-Modified or ETag header)")
+                  continue
+                fi
               fi
 
               echo "    Last-Modified: $last_modified"
