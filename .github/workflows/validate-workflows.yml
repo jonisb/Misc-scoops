@@ -60,11 +60,22 @@ jobs:
           # shellcheck disable=SC2086
           echo "files=$existing_files" >> "$GITHUB_OUTPUT"
 
+      - name: Cache actionlint
+        if: steps.changed.outputs.files != ''
+        uses: actions/cache@v4
+        id: cache-actionlint
+        with:
+          path: actionlint
+          key: actionlint-${{ runner.os }}-v1.7.9
+
+      - name: Download actionlint
+        if: steps.changed.outputs.files != '' && steps.cache-actionlint.outputs.cache-hit != 'true'
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.9
+
       - name: Validate changed workflow files
         if: steps.changed.outputs.files != ''
         run: |
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-
           # Only validate the changed workflow files
           # shellcheck disable=SC2086
           ./actionlint -color ${{ steps.changed.outputs.files }}

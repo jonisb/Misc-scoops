@@ -105,10 +105,11 @@ jobs:
           if ($apps.Count -gt 0) {
               $commitMessage = "$commitMessage: $($apps -join ', ')"
           }
+          $commitMessage = "$commitMessage [skip ci]"
 
           $changes = git status --porcelain
           if (-not [string]::IsNullOrWhiteSpace($changes)) {
-              git add .
+              git add bucket/*.json
               git commit -m "$commitMessage"
               git push
           } else {
