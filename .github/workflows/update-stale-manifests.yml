@@ -57,7 +57,7 @@ jobs:
               Write-Output "Updating: $app"
               Write-Output "=========================================="
               $output = & $checkhashesScript -App $app -Dir $bucketPath -ForceUpdate *>&1
-              $exitCode = if ($LASTEXITCODE -ne $null) { $LASTEXITCODE } else { 0 }
+              $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { [int] $LASTEXITCODE }
               $output | ForEach-Object { Write-Output $_ }
 
               if ($exitCode -gt 0) {
