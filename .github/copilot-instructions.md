@@ -140,7 +140,7 @@ For custom version checking:
 Based on past fixes (PR #50 and others):
 
 1. **PowerShell Variable + Colon Issue**: When a PowerShell variable is followed by a colon, always use braces
-   - ❌ Wrong: `"$app: status"` (PowerShell interprets anything with a colon as a drive path like `C:` or `D:`, so `$app:` becomes a drive access attempt)
+   - ❌ Wrong: `"$app: status"` (PowerShell interprets `$app:` as a provider/drive access like `C:` or `Env:`, causing errors)
    - ✅ Correct: `"${app}: status"` or in regex: `[regex]::Escape("${app}:")`
    - The braces explicitly delimit where the variable name ends
 
@@ -277,10 +277,7 @@ scoop uninstall app
 ### PowerShell String Interpolation
 - Use double quotes for variable expansion: `"$var"`
 - Avoid unintended expansion in single quotes: `'$var'`
-- **CRITICAL**: When a variable is followed by a colon `:`, use braces: `"${var}:"` not `"$var:"` 
-  - PowerShell interprets `$var:` as a drive path access (like `C:` or `D:`), causing errors
-  - Braces explicitly delimit the variable name: `"${app}: checking status"`
-  - Also applies in regex: `[regex]::Escape("${app}:")`
+- **CRITICAL**: When a variable is followed by a colon `:`, use braces: `"${var}:"` not `"$var:"` (see "Common Workflow Mistakes" section for details)
 - Escape special characters in regex patterns
 - Use `$()` for expressions: `"Result: $(Get-Date)"`
 
