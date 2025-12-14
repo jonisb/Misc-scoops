@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       apps:
-        description: 'Space-separated list of manifests to refresh (e.g. "indiegala-gog")'
+        description: 'Comma-separated list of manifests to refresh (e.g. "indiegala-gog" or "app1,app2")'
         required: true
         default: indiegala-gog
 
@@ -16,26 +16,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  convert-input:
-    runs-on: ubuntu-latest
-    outputs:
-      apps_comma: ${{ steps.convert.outputs.apps_comma }}
-    steps:
-      - name: Convert space-separated to comma-separated
-        id: convert
-        shell: bash
-        run: |
-          # Convert space-separated input to comma-separated for reusable workflow
-          apps="${{ github.event.inputs.apps }}"
-          apps_comma=$(echo "$apps" | tr ' ' ',')
-          echo "apps_comma=$apps_comma" >> "$GITHUB_OUTPUT"
-          echo "Converted apps: $apps_comma"
-
   update:
-    needs: convert-input
     permissions:
       contents: write
     uses: ./.github/workflows/update-manifests-reusable.yml
     with:
-      apps: ${{ needs.convert-input.outputs.apps_comma }}
+      apps: ${{ github.event.inputs.apps }}
       commit-message: 'Refresh stale manifest(s)'

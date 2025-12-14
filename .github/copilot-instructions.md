@@ -132,8 +132,8 @@ For custom version checking:
 
 ### Update Stale Manifests (`update-stale-manifests.yml`)
 - Manual workflow dispatch (can specify apps to update)
-- Accepts space-separated list of app names
-- Converts input format and calls reusable `update-manifests-reusable` workflow
+- Accepts comma-separated list of app names (e.g., "app1,app2")
+- Calls reusable `update-manifests-reusable` workflow
 - Commits changes with `[skip ci]` to avoid triggering tests
 
 ### Reusable Components

@@ -69,10 +69,10 @@ This document describes the improvements made to the GitHub Actions workflows to
 - Update job now delegates to the reusable workflow
 
 #### `update-stale-manifests.yml`
-- Reduced from 193 lines to 38 lines
-- Added a lightweight job to convert space-separated input to comma-separated format
+- Reduced from 193 lines to 24 lines
+- Updated to accept comma-separated input (matching reusable workflow format)
 - Update logic delegates to the reusable workflow
-- No functional changes for end users
+- Input format changed from space-separated to comma-separated
 
 ## Code Reduction Statistics
 
@@ -80,14 +80,14 @@ This document describes the improvements made to the GitHub Actions workflows to
 |------|--------|-------|-----------|
 | `test-manifests.yml` | 219 lines | 202 lines | -17 lines |
 | `check-url-freshness.yml` | 420 lines | 191 lines | -229 lines |
-| `update-stale-manifests.yml` | 193 lines | 38 lines | -155 lines |
-| **Total** | **832 lines** | **431 lines** | **-401 lines (48% reduction)** |
+| `update-stale-manifests.yml` | 193 lines | 25 lines | -168 lines |
+| **Total** | **832 lines** | **418 lines** | **-414 lines (50% reduction)** |
 
 **New files added:**
 - `.github/actions/install-scoop/action.yml`: 35 lines
 - `.github/workflows/update-manifests-reusable.yml`: 247 lines
 
-**Net result:** Removed 401 lines, added 282 lines = **119 lines saved** with much better maintainability
+**Net result:** Removed 414 lines, added 282 lines = **132 lines saved** with much better maintainability
 
 ## Architecture Benefits
 
