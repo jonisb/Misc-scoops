@@ -116,6 +116,7 @@ For custom version checking:
 - Runs `scoop info` to verify manifest correctness
 - On PRs: performs full install/uninstall testing
 - Requires Windows runner for Scoop testing
+- Uses reusable `install-scoop` action for setup
 
 ### Validate Workflows (`validate-workflows.yml`)
 - Triggered when workflow files (`.github/workflows/*.yml`) change
@@ -127,13 +128,30 @@ For custom version checking:
 - Checks if download URLs have been modified since manifest was last updated
 - Uses `Last-Modified` HTTP headers for detection
 - Generates reports in job summary
-- Triggers auto-update workflow if stale URLs detected
+- Calls reusable `update-manifests-reusable` workflow if stale URLs detected
 
-### Update Stale Manifests (`update-stale-manifests.yml`)
-- Manual workflow dispatch (can specify apps to update)
+### Reusable Components
+
+#### Install Scoop Action (`.github/actions/install-scoop`)
+- Composite action for installing Scoop package manager
+- Downloads and verifies Scoop installer with SHA256 hash
+- Optionally creates Scoop cache directory
+- Used by multiple workflows to ensure consistent setup
+- **Input:** `create-cache` (boolean, default: false)
+
+#### Update Manifests Reusable Workflow (`.github/workflows/update-manifests-reusable.yml`)
+- Reusable workflow for updating manifest hashes
 - Uses Scoop's `checkhashes.ps1` to refresh hashes
-- Commits changes with `[skip ci]` to avoid triggering tests
-- Adds `freshness_notes` field to track refreshes
+- Handles PowerShell exit code detection
+- Adds notes to manifests when hashes are verified but unchanged
+- Commits and pushes changes automatically
+- Generates detailed job summaries
+- **Inputs:**
+  - `apps` (required): Comma-separated list of manifests to update
+  - `commit-message` (optional): Custom commit message
+- **Outputs:**
+  - `updated_apps`: Comma-separated list of successfully updated apps
+  - `failed_apps`: Comma-separated list of apps that failed to update
 
 ### Common Workflow Mistakes to Avoid
 
@@ -156,7 +174,7 @@ Based on past fixes (PR #50 and others):
    - ✅ Correct: Native executables (like `scoop`, `git`) reliably set `$LASTEXITCODE`
    - ✅ Correct: For PowerShell scripts called with `&`, always check for null: `if ($null -eq $LASTEXITCODE) { ... }`
    - ✅ Correct: Use output analysis and other indicators (file changes, output patterns) to determine success/failure
-   - Example from update-stale-manifests.yml and check-url-freshness.yml:
+   - Example from update-manifests-reusable.yml and check-url-freshness.yml:
      ```powershell
      $output = & $checkhashesScript -App $app -Dir $path -Update 2>&1 | Out-String
      $lastExitCode = $LASTEXITCODE
@@ -358,12 +376,16 @@ Misc-scoops/
 │   ├── ollama.json           # Example manifest
 │   └── *.json                # App manifests
 ├── .github/
+│   ├── actions/              # Reusable composite actions
+│   │   └── install-scoop/   # Scoop installation action
+│   │       └── action.yml
 │   ├── workflows/            # CI/CD automation
-│   │   ├── schedule.yml               # Excavator auto-updates
-│   │   ├── test-manifests.yml         # Validation & testing
-│   │   ├── validate-workflows.yml     # Workflow linting
-│   │   ├── check-url-freshness.yml    # URL staleness detection
-│   │   └── update-stale-manifests.yml # Manual hash refresh
+│   │   ├── schedule.yml                     # Excavator auto-updates
+│   │   ├── test-manifests.yml               # Validation & testing
+│   │   ├── validate-workflows.yml           # Workflow linting
+│   │   ├── check-url-freshness.yml          # URL staleness detection
+│   │   ├── update-manifests-reusable.yml    # Reusable update workflow
+│   │   └── IMPROVEMENTS.md                  # Workflow improvements docs
 │   └── copilot-instructions.md  # This file
 ├── AGENTS.md                 # AI agent guidance
 ├── LICENSE                   # Unlicense (public domain)
