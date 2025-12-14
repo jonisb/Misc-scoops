@@ -180,6 +180,14 @@ jobs:
           # Output report to job summary
           cat "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
 
+  update-ffc-version:
+    name: Update FFC Version
+    needs: check-url-freshness
+    if: needs.check-url-freshness.outputs.has_updates == 'true' && contains(needs.check-url-freshness.outputs.stale_apps, 'ffc')
+    permissions:
+      contents: write
+    uses: ./.github/workflows/check-ffc-version.yml
+
   update-manifests:
     name: Update Stale Manifests
     needs: check-url-freshness
