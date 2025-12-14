@@ -55,7 +55,6 @@ This document describes the improvements made to the GitHub Actions workflows to
 
 **Called by:**
 - `check-url-freshness.yml` (automatic daily check)
-- `update-stale-manifests.yml` (manual workflow dispatch)
 
 ### 3. Simplified Existing Workflows
 
@@ -68,26 +67,22 @@ This document describes the improvements made to the GitHub Actions workflows to
 - The URL freshness checking logic remains unchanged
 - Update job now delegates to the reusable workflow
 
-#### `update-stale-manifests.yml`
-- Reduced from 193 lines to 24 lines
-- Updated to accept comma-separated input (matching reusable workflow format)
-- Update logic delegates to the reusable workflow
-- Input format changed from space-separated to comma-separated
-
 ## Code Reduction Statistics
 
 | File | Before | After | Reduction |
 |------|--------|-------|-----------|
 | `test-manifests.yml` | 219 lines | 202 lines | -17 lines |
 | `check-url-freshness.yml` | 420 lines | 191 lines | -229 lines |
-| `update-stale-manifests.yml` | 193 lines | 25 lines | -168 lines |
-| **Total** | **832 lines** | **418 lines** | **-414 lines (50% reduction)** |
+| **Total** | **639 lines** | **393 lines** | **-246 lines (38% reduction)** |
 
 **New files added:**
 - `.github/actions/install-scoop/action.yml`: 35 lines
 - `.github/workflows/update-manifests-reusable.yml`: 247 lines
 
-**Net result:** Removed 414 lines, added 282 lines = **132 lines saved** with much better maintainability
+**Files removed:**
+- `update-stale-manifests.yml`: 193 lines (manual workflow not needed)
+
+**Net result:** Removed 439 lines, added 282 lines = **157 lines saved** with much better maintainability
 
 ## Architecture Benefits
 
@@ -112,13 +107,14 @@ test-manifests.yml
   └── uses: install-scoop action
 check-url-freshness.yml
   └── calls: update-manifests-reusable workflow
-update-stale-manifests.yml
-  └── calls: update-manifests-reusable workflow
 validate-workflows.yml
 
 Reusable Components:
   ├── install-scoop action (composite)
   └── update-manifests-reusable workflow (reusable)
+
+Removed:
+  └── update-stale-manifests.yml (manual workflow not needed)
 ```
 
 ## Maintenance Improvements

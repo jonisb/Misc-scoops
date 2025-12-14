@@ -22,7 +22,9 @@ Refactored workflows to use reusable components following GitHub Actions best pr
 ### 3. Updated Existing Workflows
 - `test-manifests.yml`: Now uses `install-scoop` action
 - `check-url-freshness.yml`: Now calls `update-manifests-reusable` workflow
-- `update-stale-manifests.yml`: Now calls `update-manifests-reusable` workflow
+
+### 4. Removed Unnecessary Workflows
+- `update-stale-manifests.yml`: Removed (manual workflow not needed)
 
 ## Key Benefits
 
@@ -38,9 +40,10 @@ Refactored workflows to use reusable components following GitHub Actions best pr
 
 ### Code Reduction
 - **Before:** 832 lines across workflow files
-- **After:** 431 lines across workflow files (excluding new reusable components)
-- **Reduction:** 48% less code in main workflows
+- **After:** 393 lines across workflow files (excluding new reusable components)
+- **Reduction:** 53% less code in main workflows
 - **New reusable code:** 282 lines (composite action + reusable workflow)
+- **Removed:** 193 lines (update-stale-manifests.yml)
 - **Net:** More maintainable architecture with better separation of concerns
 
 ## Changes Made
@@ -70,10 +73,10 @@ Refactored workflows to use reusable components following GitHub Actions best pr
    - Replaced entire update job with workflow call
    - Reduced by 229 lines
 
-3. `.github/workflows/update-stale-manifests.yml`
-   - Added input conversion job
-   - Replaced update logic with workflow call
-   - Reduced by 155 lines
+### Removed Files
+1. `.github/workflows/update-stale-manifests.yml`
+   - Removed entirely (manual workflow not needed)
+   - 193 lines removed
 
 4. `.github/copilot-instructions.md`
    - Updated with documentation about reusable components

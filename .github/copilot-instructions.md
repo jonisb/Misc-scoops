@@ -130,12 +130,6 @@ For custom version checking:
 - Generates reports in job summary
 - Calls reusable `update-manifests-reusable` workflow if stale URLs detected
 
-### Update Stale Manifests (`update-stale-manifests.yml`)
-- Manual workflow dispatch (can specify apps to update)
-- Accepts comma-separated list of app names (e.g., "app1,app2")
-- Calls reusable `update-manifests-reusable` workflow
-- Commits changes with `[skip ci]` to avoid triggering tests
-
 ### Reusable Components
 
 #### Install Scoop Action (`.github/actions/install-scoop`)
@@ -180,7 +174,7 @@ Based on past fixes (PR #50 and others):
    - ✅ Correct: Native executables (like `scoop`, `git`) reliably set `$LASTEXITCODE`
    - ✅ Correct: For PowerShell scripts called with `&`, always check for null: `if ($null -eq $LASTEXITCODE) { ... }`
    - ✅ Correct: Use output analysis and other indicators (file changes, output patterns) to determine success/failure
-   - Example from update-stale-manifests.yml and check-url-freshness.yml:
+   - Example from update-manifests-reusable.yml and check-url-freshness.yml:
      ```powershell
      $output = & $checkhashesScript -App $app -Dir $path -Update 2>&1 | Out-String
      $lastExitCode = $LASTEXITCODE
@@ -390,7 +384,6 @@ Misc-scoops/
 │   │   ├── test-manifests.yml               # Validation & testing
 │   │   ├── validate-workflows.yml           # Workflow linting
 │   │   ├── check-url-freshness.yml          # URL staleness detection
-│   │   ├── update-stale-manifests.yml       # Manual hash refresh
 │   │   ├── update-manifests-reusable.yml    # Reusable update workflow
 │   │   └── IMPROVEMENTS.md                  # Workflow improvements docs
 │   └── copilot-instructions.md  # This file
