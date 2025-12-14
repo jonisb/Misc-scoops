@@ -29,14 +29,24 @@ jobs:
           
           # Download the FFC archive
           echo "Downloading FFC_x64.zip..."
-          curl -L -o /tmp/FFC_x64.zip https://www.uwe-sieber.de/files/FFC_x64.zip
+          if ! curl -L --fail --show-error -o /tmp/FFC_x64.zip https://www.uwe-sieber.de/files/FFC_x64.zip; then
+            echo "Failed to download FFC_x64.zip"
+            exit 1
+          fi
           
           # Extract and read version from FFC.txt
           echo "Extracting FFC.txt..."
-          unzip -q -j /tmp/FFC_x64.zip FFC.txt -d /tmp/
+          if ! unzip -q -j /tmp/FFC_x64.zip FFC.txt -d /tmp/; then
+            echo "Failed to extract FFC.txt from archive"
+            exit 1
+          fi
           
           # Extract version from FFC.txt (format: "FFC V1.9.3 - Fast File Copy")
-          actual_version=$(grep -oP 'FFC V\K[\d.]+' /tmp/FFC.txt | head -1)
+          actual_version=$(grep -oP 'FFC V\K[\d.]+' /tmp/FFC.txt | head -1 || true)
+          if [ -z "$actual_version" ]; then
+            echo "Failed to extract version from FFC.txt"
+            exit 1
+          fi
           echo "Actual version in archive: $actual_version"
           
           # Read current version from manifest
@@ -54,7 +64,10 @@ jobs:
             echo "new_hash_64bit=$new_hash" >> "$GITHUB_OUTPUT"
             
             # Download and hash 32-bit version
-            curl -L -o /tmp/FFC_Win32.zip https://www.uwe-sieber.de/files/FFC_Win32.zip
+            if ! curl -L --fail --show-error -o /tmp/FFC_Win32.zip https://www.uwe-sieber.de/files/FFC_Win32.zip; then
+              echo "Failed to download FFC_Win32.zip"
+              exit 1
+            fi
             new_hash_32=$(sha256sum /tmp/FFC_Win32.zip | awk '{print $1}')
             echo "new_hash_32bit=$new_hash_32" >> "$GITHUB_OUTPUT"
           else
@@ -70,9 +83,7 @@ jobs:
           jq --arg ver "${{ steps.check.outputs.new_version }}" \
              --arg hash64 "${{ steps.check.outputs.new_hash_64bit }}" \
              --arg hash32 "${{ steps.check.outputs.new_hash_32bit }}" \
-             '.version = $ver | 
-              .architecture."64bit".hash = $hash64 | 
-              .architecture."32bit".hash = $hash32' \
+             '.version = $ver | .architecture."64bit".hash = $hash64 | .architecture."32bit".hash = $hash32' \
              bucket/ffc.json > bucket/ffc.json.tmp
           mv bucket/ffc.json.tmp bucket/ffc.json
           
