@@ -1,0 +1,99 @@
+name: Check FFC Version
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # Run daily at 8 AM UTC
+  workflow_dispatch: # Allow manual triggering
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-ffc-version
+  cancel-in-progress: false
+
+jobs:
+  check-ffc-version:
+    name: Check FFC Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check FFC version in archive
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          
+          # Download the FFC archive
+          echo "Downloading FFC_x64.zip..."
+          curl -L -o /tmp/FFC_x64.zip https://www.uwe-sieber.de/files/FFC_x64.zip
+          
+          # Extract and read version from FFC.txt
+          echo "Extracting FFC.txt..."
+          unzip -q -j /tmp/FFC_x64.zip FFC.txt -d /tmp/
+          
+          # Extract version from FFC.txt (format: "FFC V1.9.3 - Fast File Copy")
+          actual_version=$(grep -oP 'FFC V\K[\d.]+' /tmp/FFC.txt | head -1)
+          echo "Actual version in archive: $actual_version"
+          
+          # Read current version from manifest
+          manifest_version=$(jq -r '.version' bucket/ffc.json)
+          echo "Manifest version: $manifest_version"
+          
+          # Compare versions
+          if [ "$actual_version" != "$manifest_version" ]; then
+            echo "Version mismatch detected! Archive has $actual_version, manifest has $manifest_version"
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
+            echo "new_version=$actual_version" >> "$GITHUB_OUTPUT"
+            
+            # Calculate new hash
+            new_hash=$(sha256sum /tmp/FFC_x64.zip | awk '{print $1}')
+            echo "new_hash_64bit=$new_hash" >> "$GITHUB_OUTPUT"
+            
+            # Download and hash 32-bit version
+            curl -L -o /tmp/FFC_Win32.zip https://www.uwe-sieber.de/files/FFC_Win32.zip
+            new_hash_32=$(sha256sum /tmp/FFC_Win32.zip | awk '{print $1}')
+            echo "new_hash_32bit=$new_hash_32" >> "$GITHUB_OUTPUT"
+          else
+            echo "Versions match, no update needed"
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update manifest
+        if: steps.check.outputs.needs_update == 'true'
+        shell: bash
+        run: |
+          # Update version and hashes in manifest
+          jq --arg ver "${{ steps.check.outputs.new_version }}" \
+             --arg hash64 "${{ steps.check.outputs.new_hash_64bit }}" \
+             --arg hash32 "${{ steps.check.outputs.new_hash_32bit }}" \
+             '.version = $ver | 
+              .architecture."64bit".hash = $hash64 | 
+              .architecture."32bit".hash = $hash32' \
+             bucket/ffc.json > bucket/ffc.json.tmp
+          mv bucket/ffc.json.tmp bucket/ffc.json
+          
+          echo "Updated manifest to version ${{ steps.check.outputs.new_version }}"
+
+      - name: Commit and push changes
+        if: steps.check.outputs.needs_update == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add bucket/ffc.json
+          git commit -m "Auto-update ffc.json to version ${{ steps.check.outputs.new_version }} [skip ci]"
+          git push
+
+      - name: Summary
+        shell: bash
+        run: |
+          if [ "${{ steps.check.outputs.needs_update }}" = "true" ]; then
+            echo "✅ FFC manifest updated to version ${{ steps.check.outputs.new_version }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "✅ FFC manifest is up to date" >> "$GITHUB_STEP_SUMMARY"
+          fi
