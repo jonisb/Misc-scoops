@@ -53,6 +53,7 @@ jobs:
 
           # Get bucket path for manifest validation
           $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
+          # JSON depth for ConvertTo-Json to handle deeply nested manifest structures
           $jsonDepth = 20
 
           $updatedApps = @()
@@ -212,7 +213,7 @@ jobs:
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Check if there are any changes to commit
           if git diff --quiet bucket/; then
