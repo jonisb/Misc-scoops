@@ -1,0 +1,232 @@
+name: Update Manifests (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      apps:
+        description: 'Comma-separated list of manifests to update'
+        required: true
+        type: string
+      commit-message:
+        description: 'Commit message for changes'
+        required: false
+        type: string
+        default: 'Auto-update manifests'
+    outputs:
+      updated_apps:
+        description: 'Comma-separated list of successfully updated apps'
+        value: ${{ jobs.update.outputs.updated_apps }}
+      failed_apps:
+        description: 'Comma-separated list of apps that failed to update'
+        value: ${{ jobs.update.outputs.failed_apps }}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      updated_apps: ${{ steps.update.outputs.updated_apps }}
+      failed_apps: ${{ steps.update.outputs.failed_apps }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Scoop
+        uses: ./.github/actions/install-scoop
+        with:
+          create-cache: 'true'
+
+      - name: Update manifests
+        id: update
+        shell: powershell
+        run: |
+          # Split on comma (input format)
+          $staleApps = "${{ inputs.apps }}" -split "," | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+          Write-Output "Apps to update: $($staleApps -join ', ')"
+          Write-Output ""
+
+          # Change to repository root directory for checkhashes to work
+          Set-Location $env:GITHUB_WORKSPACE
+
+          # Get bucket path for manifest validation
+          $bucketPath = Join-Path $env:GITHUB_WORKSPACE "bucket"
+          $jsonDepth = 20
+
+          $updatedApps = @()
+          $skippedApps = @()
+          $failedApps = @()
+
+          foreach ($app in $staleApps) {
+            if ([string]::IsNullOrWhiteSpace($app)) { continue }
+
+            $manifestPath = Join-Path $bucketPath "$app.json"
+            if (-not (Test-Path $manifestPath)) {
+              Write-Output "Skipping $app - manifest not found"
+              continue
+            }
+
+            Write-Output "=========================================="
+            Write-Output "Updating: $app"
+            Write-Output "=========================================="
+
+            try {
+              # Get manifest hash before checkhashes to detect changes
+              $hashBefore = (Get-FileHash $manifestPath).Hash
+
+              # Run checkhashes script directly
+              $checkhashesScript = Join-Path $env:USERPROFILE "scoop\apps\scoop\current\bin\checkhashes.ps1"
+              if (-not (Test-Path $checkhashesScript)) {
+                throw "checkhashes.ps1 script not found at: $checkhashesScript"
+              }
+              $output = & $checkhashesScript -App $app -Dir $env:GITHUB_WORKSPACE -Update *>&1 | Out-String
+              $lastExitCode = $LASTEXITCODE
+              Write-Output $output.Trim()
+
+              # Get manifest hash after checkhashes to detect changes
+              $hashAfter = (Get-FileHash $manifestPath).Hash
+              $manifestChanged = $hashBefore -ne $hashAfter
+
+              # Match patterns indicating hash verification or errors
+              $hasOkOutput = $output -match "(?i)\bOK\b"
+              $hasError = $output -match "(?i)(error|exception|could not|failed|unable to|timeout)"
+              
+              # PowerShell scripts called with & may not set LASTEXITCODE
+              # Determine exit code based on output analysis and manifest changes
+              if ($null -eq $lastExitCode) {
+                  # PowerShell script didn't set LASTEXITCODE
+                  if ($hasError) {
+                      Write-Warning "checkhashes returned no exit code, but output indicates an error"
+                      $exitCode = 1
+                  } elseif ($manifestChanged -or $hasOkOutput) {
+                      Write-Output "checkhashes returned no exit code; manifest was updated or verified successfully"
+                      $exitCode = 0
+                  } else {
+                      Write-Warning "checkhashes returned no exit code and no clear status; treating as success (verify logs)"
+                      $exitCode = 0
+                  }
+              } else {
+                  $exitCode = [int] $lastExitCode
+              }
+              $hashVerifiedWithoutChanges = -not $manifestChanged -and $hasOkOutput -and -not $hasError
+
+              if ($hashVerifiedWithoutChanges) {
+                $note = "Updated $(Get-Date -Format 'yyyy-MM-dd'): manifest refreshed; hashes unchanged"
+                try {
+                  $manifestJson = Get-Content -Path $manifestPath -Raw | ConvertFrom-Json
+                  $combinedNotes = @()
+                  if ($manifestJson.PSObject.Properties.Name -contains "notes") {
+                    $existingNote = $manifestJson.notes
+                    if ($existingNote -is [array]) {
+                      foreach ($noteEntry in $existingNote) {
+                        if (-not [string]::IsNullOrWhiteSpace([string]$noteEntry)) {
+                          $combinedNotes += [string]$noteEntry
+                        }
+                      }
+                    } else {
+                      if (-not [string]::IsNullOrWhiteSpace([string]$existingNote)) {
+                        $combinedNotes += [string]$existingNote
+                      }
+                    }
+                  }
+                  $combinedNotes += $note
+                  $manifestJson | Add-Member -MemberType NoteProperty -Name "notes" -Value $combinedNotes -Force
+                  $manifestJson | ConvertTo-Json -Depth $jsonDepth | Set-Content -Path $manifestPath -Encoding utf8
+                  $manifestChanged = $true
+                  Write-Output "[OK] $app manifest refreshed with hash-unchanged note"
+                } catch {
+                  Write-Output "[WARN] Unable to add hash-unchanged note for $app : $_"
+                }
+              }
+
+              if ($exitCode -gt 0 -and $hasError) {
+                Write-Output "[FAIL] $app encountered an error during hash check"
+                $failedApps += $app
+              } elseif ($manifestChanged) {
+                if ($hashVerifiedWithoutChanges) {
+                  Write-Output "[OK] $app manifest updated (hashes unchanged)"
+                } else {
+                  Write-Output "[OK] $app manifest hashes were updated"
+                }
+                $updatedApps += $app
+              } elseif ($hasOkOutput -and -not $hasError) {
+                Write-Output "[OK] $app hashes are correct"
+                $updatedApps += $app
+              } else {
+                Write-Output "[SKIP] ${app}: checkhashes completed without clear success/error indication"
+                $skippedApps += $app
+              }
+            } catch {
+              Write-Output "[FAIL] Failed to update $app : $_"
+              $failedApps += $app
+            }
+            Write-Output ""
+          }
+
+          Write-Output "=========================================="
+          Write-Output "Summary"
+          Write-Output "=========================================="
+          Write-Output "Updated apps: $($updatedApps -join ', ')"
+          if ($skippedApps.Count -gt 0) {
+            Write-Output "Skipped apps: $($skippedApps -join ', ')"
+          }
+          if ($failedApps.Count -gt 0) {
+            Write-Output "Failed apps: $($failedApps -join ', ')"
+          }
+
+          # Write results to job summary
+          "## Update Manifests Results`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          "**Generated:** $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') UTC`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+          if ($updatedApps.Count -gt 0) {
+            "### ✅ Successfully Processed Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            foreach ($app in $updatedApps) {
+              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            }
+            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+          if ($skippedApps.Count -gt 0) {
+            "### ⚠️ Skipped Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            foreach ($app in $skippedApps) {
+              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            }
+            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+          if ($failedApps.Count -gt 0) {
+            "### ❌ Failed Apps`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            foreach ($app in $failedApps) {
+              "- $app" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            }
+            "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+          # Set outputs (using comma-separated format)
+          "updated_apps=$($updatedApps -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "failed_apps=$($failedApps -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are any changes to commit
+          if git diff --quiet bucket/; then
+            echo "No manifest changes detected"
+            exit 0
+          fi
+
+          git add bucket/*.json
+          git commit -m "${{ inputs.commit-message }} [skip ci]"
+          git push
+
+      - name: Report failures
+        if: steps.update.outputs.failed_apps != ''
+        shell: bash
+        run: |
+          echo "::error::Failed to update the following apps: ${{ steps.update.outputs.failed_apps }}"
+          exit 1
