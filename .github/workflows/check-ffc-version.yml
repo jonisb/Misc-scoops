@@ -27,9 +27,54 @@ jobs:
         run: |
           set -euo pipefail
           
+          MANIFEST_FILE="bucket/ffc.json"
+          URL_64BIT="https://www.uwe-sieber.de/files/FFC_x64.zip"
+          URL_32BIT="https://www.uwe-sieber.de/files/FFC_Win32.zip"
+          USER_AGENT="Mozilla/5.0 (compatible; ScoopBucketChecker/1.0; +https://github.com/${{ github.repository }})"
+          
+          # Get the last commit timestamp for the manifest file
+          manifest_commit_timestamp=$(git log -1 --format="%ct" -- "$MANIFEST_FILE" 2>/dev/null || echo "")
+          if [ -z "$manifest_commit_timestamp" ]; then
+            echo "Warning: No git history found for manifest, will check version"
+            should_check=true
+          else
+            manifest_commit_date=$(date -u -d "@$manifest_commit_timestamp" '+%a, %d %b %Y %H:%M:%S GMT')
+            echo "Manifest last updated: $manifest_commit_date"
+            
+            # Check Last-Modified header for the 64-bit archive
+            echo "Checking Last-Modified header for FFC_x64.zip..."
+            response=$(curl -sI -L --max-redirs 5 --max-time 30 -A "$USER_AGENT" "$URL_64BIT" 2>/dev/null || true)
+            last_modified=$(echo "$response" | grep -i "^last-modified:" | tail -1 | sed 's/^[Ll]ast-[Mm]odified: *//' | tr -d '\r' || true)
+            
+            if [ -z "$last_modified" ]; then
+              echo "No Last-Modified header found, will check version anyway"
+              should_check=true
+            else
+              echo "URL Last-Modified: $last_modified"
+              
+              # Convert Last-Modified to Unix timestamp
+              url_timestamp=$(date -u -d "$last_modified" '+%s' 2>/dev/null || echo "")
+              if [ -z "$url_timestamp" ]; then
+                echo "Could not parse Last-Modified header, will check version anyway"
+                should_check=true
+              elif [ "$url_timestamp" -le "$manifest_commit_timestamp" ]; then
+                echo "Archive has not been modified since last manifest update, skipping download"
+                should_check=false
+              else
+                echo "Archive has been modified since last manifest update, will check version"
+                should_check=true
+              fi
+            fi
+          fi
+          
+          if [ "$should_check" = false ]; then
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
           # Download the FFC archive
           echo "Downloading FFC_x64.zip..."
-          if ! curl -L --fail --show-error -o /tmp/FFC_x64.zip https://www.uwe-sieber.de/files/FFC_x64.zip; then
+          if ! curl -L --fail --show-error -o /tmp/FFC_x64.zip "$URL_64BIT"; then
             echo "Failed to download FFC_x64.zip"
             exit 1
           fi
@@ -50,7 +95,7 @@ jobs:
           echo "Actual version in archive: $actual_version"
           
           # Read current version from manifest
-          manifest_version=$(jq -r '.version' bucket/ffc.json)
+          manifest_version=$(jq -r '.version' "$MANIFEST_FILE")
           echo "Manifest version: $manifest_version"
           
           # Compare versions
@@ -64,7 +109,7 @@ jobs:
             echo "new_hash_64bit=$new_hash" >> "$GITHUB_OUTPUT"
             
             # Download and hash 32-bit version
-            if ! curl -L --fail --show-error -o /tmp/FFC_Win32.zip https://www.uwe-sieber.de/files/FFC_Win32.zip; then
+            if ! curl -L --fail --show-error -o /tmp/FFC_Win32.zip "$URL_32BIT"; then
               echo "Failed to download FFC_Win32.zip"
               exit 1
             fi
