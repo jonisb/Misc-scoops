@@ -386,7 +386,7 @@ Misc-scoops/
 │   │   ├── check-url-freshness.yml          # URL staleness detection
 │   │   ├── update-manifests-reusable.yml    # Reusable update workflow
 │   │   └── IMPROVEMENTS.md                  # Workflow improvements docs
-├── AGENTS.md                 # This file - AI agent guidance
+├── AGENTS.md                 # AI agent guidance
 ├── LICENSE                   # Unlicense (public domain)
 └── README.md                 # Project overview
 ```
