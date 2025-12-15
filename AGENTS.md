@@ -2,88 +2,409 @@
 
 This file provides guidance for AI agents and automated tools working on this repository.
 
-## Project Overview
+## Project Type
 
-This repository is a **Scoop bucket** - a collection of JSON manifest files that define how to install Windows applications using the [Scoop](https://scoop.sh/) package manager.
+This is a **Scoop bucket** - a collection of JSON manifest files that define how to install Windows applications using the [Scoop](https://scoop.sh/) package manager.
 
-### Repository Structure
+## Key Concepts
 
-```
-Misc-scoops/
-├── bucket/           # Contains JSON manifest files for each application
-│   └── *.json        # App manifests (e.g., ollama.json, Magpie.json)
-├── .github/
-│   └── workflows/    # CI/CD workflows
-│       ├── schedule.yml          # Auto-update via Excavator
-│       ├── test-manifests.yml    # Manifest validation and testing
-│       └── validate-workflows.yml # Workflow file validation
-├── LICENSE           # Unlicense (public domain)
-└── README.md         # Project readme
-```
+### Scoop Manifests
+- Each `.json` file in `bucket/` is an app manifest following the [Scoop App Manifests specification](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests)
+- Manifests define: version, download URLs, hashes, installation instructions, and auto-update configuration
+- Architecture-specific downloads use nested `architecture` objects (`64bit`, `32bit`, `arm64`)
 
-## Working with Manifests
+### Required Manifest Fields
+When creating or editing manifests, ALWAYS include:
+- `version` - Application version string
+- `url` OR `architecture` - Download URL(s)
+- `hash` - SHA256 hash of the download file(s)
 
-### Manifest File Format
-
-Each JSON file in the `bucket/` directory is a Scoop manifest following the [Scoop App Manifests specification](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests).
-
-Required fields:
-- `version` - The current version of the application
-- `url` or `architecture` - Either a top-level `url` field for single downloads, or an `architecture` object containing nested URLs for different architectures (e.g., `64bit`, `32bit`)
-
-Common fields:
+### Common Manifest Fields
 - `homepage` - Project homepage URL
-- `description` - Brief description of the application
-- `license` - Software license
-- `hash` - SHA256 hash of the download
-- `bin` - Executable(s) to add to PATH
-- `shortcuts` - Start menu shortcuts to create
-- `checkver` - Version checking configuration for auto-updates
-- `autoupdate` - Auto-update URL patterns
+- `description` - Brief app description
+- `license` - Software license identifier
+- `bin` - Executables to add to PATH (can be string or array)
+- `shortcuts` - Start menu shortcuts (array of arrays: `[["exe_path", "shortcut_name"]]`)
+- `persist` - Files/folders to persist across updates
+- `innosetup` - Set to `true` for InnoSetup installers
+- `checkver` - Version checking config (often just `"github"` for GitHub releases)
+- `autoupdate` - Auto-update URL patterns using `$version` variable
 
-### Adding or Updating Manifests
+## Manifest URL Patterns
 
-1. **Adding a new app**: Create a new JSON file in `bucket/` with the app name
-2. **Updating versions**: Update the `version` field and `hash` for new releases
-3. **Auto-updates**: Configure `checkver` and `autoupdate` for automatic version detection
+### GitHub Releases
+```json
+"url": "https://github.com/owner/repo/releases/download/v$version/app-$version.zip"
+```
 
-### Validation
+### Architecture-Specific URLs
+```json
+"architecture": {
+    "64bit": {
+        "url": "https://example.com/app-x64.zip",
+        "hash": "sha256_hash_here"
+    },
+    "32bit": {
+        "url": "https://example.com/app-x86.zip",
+        "hash": "sha256_hash_here"
+    }
+}
+```
 
-Manifests are validated by CI workflows on pull requests:
-- JSON syntax validation
-- Required fields check
-- `scoop info` verification
-- Install/uninstall testing (on PRs)
+### URL Fragments
+Use `#/dl.exe` or `#/dl.zip` to specify extraction patterns:
+```json
+"url": "https://example.com/installer.exe#/dl.exe"
+```
+
+## Common Tasks
+
+### Adding a New Manifest
+1. Create `bucket/app-name.json`
+2. Include required fields: `version`, `url`/`architecture`, `hash`
+3. Add `checkver` and `autoupdate` for automatic updates
+4. Test locally: `scoop bucket add test-bucket .` then `scoop install test-bucket/app-name`
+
+### Updating a Manifest Version
+1. Update `version` field
+2. Update `url` with new version number (if not using autoupdate)
+3. Calculate and update `hash` field(s) with SHA256 of new download
+4. The CI workflows will validate on push/PR
+
+### Getting SHA256 Hash
+PowerShell:
+```powershell
+(Get-FileHash -Path "file.exe" -Algorithm SHA256).Hash.ToLower()
+```
+
+Bash:
+```bash
+sha256sum file.exe | awk '{print $1}'
+```
+
+### Configuring Auto-Updates
+For GitHub releases:
+```json
+"checkver": "github",
+"autoupdate": {
+    "url": "https://github.com/owner/repo/releases/download/v$version/app-$version.zip"
+}
+```
+
+For custom version checking:
+```json
+"checkver": {
+    "url": "https://example.com/releases",
+    "regex": "Version ([\\d.]+)"
+},
+"autoupdate": {
+    "url": "https://example.com/download/v$version/app.zip"
+}
+```
 
 ## CI/CD Workflows
 
-### Excavator (schedule.yml)
-Runs every 12 hours to automatically update manifest versions using the `checkver` and `autoupdate` configurations.
+### Excavator (`schedule.yml`)
+- Runs every 12 hours automatically
+- Updates manifests using `checkver` and `autoupdate` configuration
+- Uses `ScoopInstaller/GithubActions@main` action
+- Commits updates directly to `master` branch
 
-### Test Manifests (test-manifests.yml)
-Validates changed manifests on pushes and PRs:
+### Test Manifests (`test-manifests.yml`)
+- Triggered on push/PR when `bucket/*.json` files change
 - Validates JSON syntax and required fields
-- Tests install/uninstall on pull requests
+- Runs `scoop info` to verify manifest correctness
+- On PRs: performs full install/uninstall testing
+- Requires Windows runner for Scoop testing
+- Uses reusable `install-scoop` action for setup
 
-### Validate Workflows (validate-workflows.yml)
-Lints GitHub Actions workflow files using actionlint.
+### Validate Workflows (`validate-workflows.yml`)
+- Triggered when workflow files (`.github/workflows/*.yml`) change
+- Uses `actionlint` to lint GitHub Actions syntax
+- Runs on Ubuntu (faster than Windows for linting)
 
-## Development Guidelines
+### Check URL Freshness (`check-url-freshness.yml`)
+- Runs daily at 6 AM UTC (can be manually triggered)
+- Checks if download URLs have been modified since manifest was last updated
+- Uses `Last-Modified` HTTP headers for detection
+- Generates reports in job summary
+- Calls reusable `update-manifests-reusable` workflow if stale URLs detected
 
-### When Modifying Manifests
-- Ensure valid JSON syntax
-- Include all required fields (`version`, `url`/`architecture`)
-- Provide accurate SHA256 hashes for downloads
-- Test locally by adding the bucket with `scoop bucket add <name> <path>` and then `scoop install <name>/<app>`
+### Reusable Components
 
-### When Modifying Workflows
-- Ensure YAML syntax is valid
-- Test workflow logic changes carefully
-- Workflows are linted with actionlint on PR
-- **Important**: PowerShell scripts (`.ps1` files) called with `&` do NOT reliably set `$LASTEXITCODE`
-  - Always check if `$LASTEXITCODE` is null before using it
-  - Use output analysis and other indicators (file changes, output patterns) to determine success/failure
-  - Native executables (like `scoop`, `git`) DO reliably set `$LASTEXITCODE`
+#### Install Scoop Action (`.github/actions/install-scoop`)
+- Composite action for installing Scoop package manager
+- Downloads and verifies Scoop installer with SHA256 hash
+- Optionally creates Scoop cache directory
+- Used by multiple workflows to ensure consistent setup
+- **Input:** `create-cache` (boolean, default: false)
+
+#### Update Manifests Reusable Workflow (`.github/workflows/update-manifests-reusable.yml`)
+- Reusable workflow for updating manifest hashes
+- Uses Scoop's `checkhashes.ps1` to refresh hashes
+- Handles PowerShell exit code detection
+- Adds notes to manifests when hashes are verified but unchanged
+- Commits and pushes changes automatically
+- Generates detailed job summaries
+- **Inputs:**
+  - `apps` (required): Comma-separated list of manifests to update
+  - `commit-message` (optional): Custom commit message
+- **Outputs:**
+  - `updated_apps`: Comma-separated list of successfully updated apps
+  - `failed_apps`: Comma-separated list of apps that failed to update
+
+### Common Workflow Mistakes to Avoid
+
+Based on past fixes (PR #50 and others):
+
+1. **PowerShell Variable + Colon Issue**: When a PowerShell variable is followed by a colon, always use braces
+   - ❌ Wrong: `"$app: status"` (PowerShell interprets `$app:` as a provider/drive access like `C:` or `Env:`, causing errors)
+   - ✅ Correct: `"${app}: status"` or in regex: `[regex]::Escape("${app}:")`
+   - The braces explicitly delimit where the variable name ends
+
+2. **GitHub Actions Expressions**: Use proper syntax for accessing workflow inputs/outputs
+   - ✅ Correct: `${{ github.event.inputs.apps }}`
+   - ✅ Correct: `${{ needs.job-name.outputs.variable }}`
+
+3. **String Splitting in PowerShell**: Use proper options to handle empty entries
+   - ✅ Correct: `"${{ github.event.inputs.apps }}".Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)`
+
+4. **Exit Code Checking**: PowerShell scripts do NOT reliably set `$LASTEXITCODE`
+   - ❌ Wrong: `if ($LASTEXITCODE -ne 0) { ... }` after calling a .ps1 script with `&`
+   - ✅ Correct: Native executables (like `scoop`, `git`) reliably set `$LASTEXITCODE`
+   - ✅ Correct: For PowerShell scripts called with `&`, always check for null: `if ($null -eq $LASTEXITCODE) { ... }`
+   - ✅ Correct: Use output analysis and other indicators (file changes, output patterns) to determine success/failure
+   - Example from update-manifests-reusable.yml and check-url-freshness.yml:
+     ```powershell
+     $output = & $checkhashesScript -App $app -Dir $path -Update 2>&1 | Out-String
+     $lastExitCode = $LASTEXITCODE
+     
+     if ($null -eq $lastExitCode) {
+         # PowerShell script didn't set LASTEXITCODE - use output analysis
+         if ($output -match "error|exception|failed") {
+             $exitCode = 1
+         } else {
+             $exitCode = 0
+         }
+     } else {
+         $exitCode = [int] $lastExitCode
+     }
+     ```
+
+5. **Git Commands in Bash**: Always use `set -euo pipefail` at script start for proper error handling
+
+## PowerShell Script Conventions
+
+### Scoop Installation in Workflows
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process -Force
+$installerUrl = 'https://raw.githubusercontent.com/ScoopInstaller/Install/ff4eedda58d832b8225d7697510f097ebe8ab071/install.ps1'
+$expectedHash = 'ef65c5a3d9f224d7c69a0e5d43008291f677e60c2f7898b132edbca4aaff021c'
+# Hash verified on 2025-12-13. Update expectedHash if the installer script is revised.
+$scoopInstaller = Join-Path $env:TEMP 'install-scoop.ps1'
+
+irm -Uri $installerUrl -OutFile $scoopInstaller -TimeoutSec 60 -ErrorAction Stop
+$installerHash = (Get-FileHash $scoopInstaller -Algorithm SHA256).Hash.ToLower()
+if ($installerHash -ne $expectedHash) {
+    throw "Unexpected installer hash: $installerHash"
+}
+
+& $scoopInstaller
+"$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+# Create cache directory if it doesn't exist (required for some workflows)
+$cachePath = Join-Path $env:USERPROFILE "scoop\cache"
+if (-not (Test-Path $cachePath)) {
+  New-Item -ItemType Directory -Path $cachePath -Force | Out-Null
+  Write-Output "Created Scoop cache directory at: $cachePath"
+}
+```
+
+**Notes:**
+- Uses `Process` scope instead of `CurrentUser` for better isolation
+- Downloads and verifies installer script with SHA256 hash before execution
+- Creates cache directory to prevent errors when Scoop downloads files
+- Update the `expectedHash` when the Scoop installer is updated
+
+### Testing Manifests Locally
+```powershell
+# Add local bucket
+New-Item -ItemType Junction -Path "$env:USERPROFILE\scoop\buckets\test-bucket" -Target "C:\path\to\repo"
+
+# Install app
+scoop install test-bucket/app-name
+
+# Verify
+scoop info app-name
+
+# Uninstall
+scoop uninstall app-name
+```
+
+### Checking Hashes
+```powershell
+# From repository root
+& "$env:USERPROFILE\scoop\apps\scoop\current\bin\checkhashes.ps1" -App app-name -Dir . -Update
+```
+
+## Bash Script Conventions
+
+### Safe String Handling
+- Use arrays for accumulating items: `declare -a ITEMS=()`
+- Add to arrays: `ITEMS+=("value")`
+- Join with delimiter: `IFS=,; echo "${ITEMS[*]}"`
+- Use null delimiter with jq: `jq -j '... | (. + "\u0000")'`
+
+### Git Operations
+```bash
+# Get last commit timestamp for file
+git log -1 --format="%ct" -- "file.json"
+
+# Get changed files between commits
+git diff --name-only "$base_sha" "$head_sha" -- 'bucket/*.json'
+```
+
+### HTTP Header Checks
+```bash
+# Get Last-Modified header
+curl -sI -L --max-redirs 5 --max-time 30 -A "User-Agent" "$url" | grep -i "^last-modified:"
+```
+
+## JSON Validation Rules
+
+### Valid JSON Structure
+- Use 4-space indentation (consistent with existing manifests)
+- No trailing commas
+- Use double quotes for strings, not single quotes
+- Boolean values: `true`/`false` (lowercase)
+- Null values: `null` (lowercase)
+
+### Field Ordering (Conventional)
+1. `homepage`
+2. `description`
+3. `license`
+4. `version`
+5. `url` or `architecture`
+6. `hash` (if top-level url)
+7. `bin`
+8. `shortcuts`
+9. `persist`
+10. `innosetup`
+11. `checkver`
+12. `autoupdate`
+
+## Testing Strategy
+
+### Local Testing Before Commit
+```powershell
+# 1. Validate JSON syntax
+Get-Content bucket/app.json | ConvertFrom-Json
+
+# 2. Verify with scoop info
+scoop info test-bucket/app
+
+# 3. Test installation
+scoop install test-bucket/app
+
+# 4. Verify executables
+app --version
+
+# 5. Test uninstall
+scoop uninstall app
+```
+
+### CI Testing Expectations
+- JSON validation happens on all pushes
+- Install/uninstall testing ONLY on pull requests (not direct pushes)
+- Failed CI on manifests should be fixed before merging
+
+## Common Pitfalls
+
+### Hash Mismatches
+- Always recalculate hashes when updating URLs
+- Use lowercase for hash values
+- Architecture-specific URLs need separate hashes
+
+### URL Fragment Issues
+- Don't forget `#/dl.exe` for installers that need renaming
+- Fragments are removed when checking HTTP headers
+
+### Version String Consistency
+- Ensure `version` matches the actual release version
+- Auto-update patterns must match the versioning scheme (with/without 'v' prefix)
+
+### PowerShell String Interpolation
+- Use double quotes for variable expansion: `"$var"`
+- Avoid unintended expansion in single quotes: `'$var'`
+- **CRITICAL**: When a variable is followed by a colon `:`, use braces: `"${var}:"` not `"$var:"` (prevents provider/drive access errors)
+- Escape special characters in regex patterns
+- Use `$()` for expressions: `"Result: $(Get-Date)"`
+
+### Git Commit Messages
+- Use `[skip ci]` suffix to avoid triggering unnecessary workflow runs
+- Example: `"Auto-update stale manifests [skip ci]"`
+
+## Best Practices
+
+### Manifest Hygiene
+- Always include `homepage`, `description`, and `license`
+- Add `checkver` and `autoupdate` for automatic maintenance
+- Use meaningful app names (lowercase, hyphens for separators)
+- Avoid special characters in filenames
+
+### Workflow Efficiency
+- Let Excavator handle routine version updates automatically
+- Only manually update manifests when autoupdate cannot work
+- Use `workflow_dispatch` for testing workflow changes
+
+### Error Handling
+- Check exit codes: `if ($LASTEXITCODE -ne 0)`
+- Use try/catch blocks in PowerShell scripts
+- Provide meaningful error messages in workflow outputs
+
+### Performance
+- Use `fetch-depth: 0` only when full git history is needed
+- Ensure Scoop cache directory exists to prevent download errors (see "Scoop Installation in Workflows")
+- Cache actionlint and other tools when possible to reduce download time
+- Use Ubuntu runners for non-Scoop operations (faster/cheaper)
+
+## Repository Structure Reference
+
+```
+Misc-scoops/
+├── bucket/                    # JSON manifest files
+│   ├── ollama.json           # Example manifest
+│   └── *.json                # App manifests
+├── .github/
+│   ├── actions/              # Reusable composite actions
+│   │   └── install-scoop/   # Scoop installation action
+│   │       └── action.yml
+│   ├── workflows/            # CI/CD automation
+│   │   ├── schedule.yml                     # Excavator auto-updates
+│   │   ├── test-manifests.yml               # Validation & testing
+│   │   ├── validate-workflows.yml           # Workflow linting
+│   │   ├── check-url-freshness.yml          # URL staleness detection
+│   │   ├── update-manifests-reusable.yml    # Reusable update workflow
+│   │   └── IMPROVEMENTS.md                  # Workflow improvements docs
+├── AGENTS.md                 # This file - AI agent guidance
+├── LICENSE                   # Unlicense (public domain)
+└── README.md                 # Project overview
+```
+
+## External Resources
+
+- [Scoop Documentation](https://github.com/ScoopInstaller/Scoop/wiki)
+- [App Manifests Specification](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifests)
+- [Autoupdate Guide](https://github.com/ScoopInstaller/Scoop/wiki/App-Manifest-Autoupdate)
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+
+## Development Workflow Summary
+
+1. **Adding/Updating Manifests**: Edit JSON in `bucket/`, ensure required fields, test locally
+2. **Committing Changes**: Push to branch, create PR for review
+3. **CI Validation**: Automated tests run on PR (JSON validation + install/uninstall)
+4. **Merging**: Once CI passes, merge to `master`
+5. **Automatic Updates**: Excavator runs every 12 hours to keep manifests current
 
 ## License
 
