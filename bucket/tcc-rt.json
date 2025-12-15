@@ -27,5 +27,6 @@
                 "url": "https://jpsoft.com/downloads/v$majorVersion/tcc-rt.exe#/dl.exe"
             }
         }
-    }
+    },
+    "notes": "The hash needs to be updated. Run 'scoop checkhashes tcc-rt' or let the Excavator workflow update it automatically."
 }
