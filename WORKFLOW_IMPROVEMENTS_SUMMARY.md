@@ -78,7 +78,7 @@ Refactored workflows to use reusable components following GitHub Actions best pr
    - Removed entirely (manual workflow not needed)
    - 193 lines removed
 
-4. `.github/copilot-instructions.md`
+4. `AGENTS.md`
    - Updated with documentation about reusable components
    - Added architectural guidance
 
