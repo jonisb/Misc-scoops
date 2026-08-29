@@ -1,0 +1,31 @@
+{
+    "homepage": "https://jpsoft.com/products/tcc-rt.html",
+    "description": "TCC-RT (Take Command Console Runtime) is a free runtime version of TCC that lets you run batch files (.BAT, .CMD, and .BTM) with all of TCC's command extensions and features.",
+    "license": "Freeware",
+    "version": "35.0.21",
+    "architecture": {
+        "64bit": {
+            "url": "https://jpsoft.com/downloads/v35/tcc-rt.exe#/dl.exe",
+            "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+    },
+    "bin": "tcc.exe",
+    "shortcuts": [
+        [
+            "tcc.exe",
+            "TCC-RT"
+        ]
+    ],
+    "innosetup": true,
+    "checkver": {
+        "url": "https://jpsoft.com/forums/forums/news.2/",
+        "regex": "Take Command / TCC / CMDebug / TCC-RT v([\\d.]+)"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://jpsoft.com/downloads/v$majorVersion/tcc-rt.exe#/dl.exe"
+            }
+        }
+    }
+}
