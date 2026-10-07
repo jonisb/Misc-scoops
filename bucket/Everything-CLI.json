@@ -1,17 +1,36 @@
 {
-    "homepage": "https://www.voidtools.com/support/everything/command_line_interface",
-    "description": "command line interface to search Everything from a command prompt.",
-    "version": "1.1.0.26",
+    "homepage": "https://github.com/voidtools/es",
+    "description": "Everything Command Line Interface",
+    "version": "1.1.0.38",
     "license": "MIT",
-    "url": "https://www.voidtools.com/ES-1.1.0.26.zip",
-    "hash": "978bb07dd5ea1868c716ee17b2f36bd4cbb1e2a4c2e1c439163558506492d873",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/voidtools/ES/releases/download/1.1.0.38/ES-1.1.0.38.x64.zip",
+            "hash": "5e0c70cbf4f694080c34aa7c6c745e606c16fe76a4b5423b93ebf9dc34274c99"
+        },
+        "32bit": {
+            "url": "https://github.com/voidtools/ES/releases/download/1.1.0.38/ES-1.1.0.38.x86.zip",
+            "hash": "815f48c5b9a5aadd65e893a81b3fbae9bd7c702033a33abca6e0925623d66a7c"
+        },
+        "arm64": {
+            "url": "https://github.com/voidtools/ES/releases/download/1.1.0.38/ES-1.1.0.38.ARM64.zip",
+            "hash": "86eddd4ae8925833e33be1d09e7faa2442110d00daf0e48a8e963cdeb7a141fe"
+        }
+    },
     "depends": "extras/everything",
     "bin": "es.exe",
-    "checkver": {
-        "url": "https://www.voidtools.com/downloads/",
-        "regex": "ES-([\\d.]+)\\.zip"
-    },
+    "checkver": "github",
     "autoupdate": {
-        "url": "https://www.voidtools.com/ES-$version.zip"
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/voidtools/ES/releases/download/$version/ES-$version.x64.zip"
+            },
+            "32bit": {
+                "url": "https://github.com/voidtools/ES/releases/download/$version/ES-$version.x86.zip"
+            },
+            "arm64": {
+                "url": "https://github.com/voidtools/ES/releases/download/$version/ES-$version.ARM64.zip"
+            }
+        }
     }
 }
