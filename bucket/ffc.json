@@ -1,16 +1,16 @@
 {
     "homepage": "https://www.uwe-sieber.de/filetools_e.html",
     "description": "is optimized for large files. It reads and writes directly from and to disk, written data can be verified.",
-    "version": "1.9.2",
+    "version": "1.9.5",
     "license": "Freeware",
     "architecture": {
         "64bit": {
             "url": "https://www.uwe-sieber.de/files/FFC_x64.zip",
-            "hash": "6e22159bb1d5bada719dcd154270b21c437ab3c6aeb0960b315a9ab6c5fbdd4d"
+            "hash": "fe95b34ce36765df247c4a0fd616038d52688a2920d0f2fc8f6f7544d82297c6"
         },
         "32bit": {
             "url": "https://www.uwe-sieber.de/files/FFC_Win32.zip",
-            "hash": "a683d4b298df5e4887184d315911702780891e341f3adaa812f9c1f41d40fd12"
+            "hash": "941916dd086182f4a4951d58436bf9a4898d1a0caaa0fdcfbf1421a92937b721"
         }
     },
     "bin": "FFC.exe",
