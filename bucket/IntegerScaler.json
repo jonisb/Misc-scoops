@@ -1,9 +1,9 @@
 {
     "homepage": "https://tanalin.com/en/projects/integer-scaler",
     "description": "is a free utility for pixel-perfect integer-ratio scaling (a.k.a. integer scaling) of games with no blur. For example, at the Full HD (1920×1080) resolution on a 4K monitor (3840×2160), each logical pixel is displayed as a square group of four (2×2) physical pixels of the same color.",
-    "version": "2.20",
-    "url": "https://dl.tanalin.com/projects/integer-scaler/IntegerScaler-2.20.7z",
-    "hash": "48871a65797bad3e9ca2862b0b61b34e89ad82a5087fa9ddd77a79cbf073dad3",
+    "version": "2.21",
+    "url": "https://dl.tanalin.com/projects/integer-scaler/IntegerScaler-2.21.7z",
+    "hash": "f13b44b0efeac642508d893ac0e096c26813d41442411914f2a00e0967d28f71",
     "license": "Freeware",
     "pre_install": [
         "if (!(Test-Path $persist_dir/settings)) {",
